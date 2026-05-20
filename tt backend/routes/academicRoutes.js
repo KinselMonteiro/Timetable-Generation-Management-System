@@ -16,6 +16,10 @@ const {
   createFacultyRequestController,
   getFacultyRequestsController,
   acceptFacultyRequestController,
+  uploadStudentsController,
+  getStudentsController,
+  getAttendanceController,
+  saveAttendanceController,
 } = require("../controllers/academicController");
 
 router.post(
@@ -36,5 +40,9 @@ router.get("/faculty-availability", getFacultyAvailabilityController);
 router.post("/faculty-requests", createFacultyRequestController);
 router.get("/faculty-requests", getFacultyRequestsController);
 router.patch("/faculty-requests/:id/accept", acceptFacultyRequestController);
+router.post("/upload-students", upload.single("file"), uploadStudentsController);
+router.get("/students", getStudentsController);
+router.get("/attendance", getAttendanceController);
+router.post("/attendance", saveAttendanceController);
 
 module.exports = router;

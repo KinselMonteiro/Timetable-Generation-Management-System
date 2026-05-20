@@ -275,14 +275,7 @@ const getCredentialsController = async (_req, res) => {
 
     res.json({
       success: true,
-      credentials: users.map((user) => ({
-        ...user,
-        password: user.role === "admin"
-          ? "admin123"
-          : user.role === "student"
-          ? "student123"
-          : "teacher123"
-      }))
+      credentials: users
     });
   } catch (err) {
     console.error(err);

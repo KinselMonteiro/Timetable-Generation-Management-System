@@ -752,6 +752,7 @@ async function ensureFacultyRequestsTable() {
       department VARCHAR(40) NOT NULL,
       year INT NULL,
       semester INT NULL,
+      request_date DATE NULL,
       day VARCHAR(10) NOT NULL,
       time VARCHAR(20) NOT NULL,
       subject VARCHAR(150) NOT NULL,
@@ -763,6 +764,14 @@ async function ensureFacultyRequestsTable() {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
   `);
+
+  try {
+    await query("ALTER TABLE faculty_requests ADD COLUMN request_date DATE NULL AFTER semester");
+  } catch (err) {
+    if (err.code !== "ER_DUP_FIELDNAME") {
+      throw err;
+    }
+  }
 }
 
 const createFacultyRequestController = async (req, res) => {
@@ -774,22 +783,23 @@ const createFacultyRequestController = async (req, res) => {
     const department = normalizeDepartment(req.body.department);
     const year = req.body.year ? Number(req.body.year) : null;
     const semester = req.body.semester ? Number(req.body.semester) : null;
+    const requestDate = String(req.body.requestDate || req.body.request_date || "").trim() || null;
     const day = String(req.body.day || "").trim().toUpperCase();
     const time = String(req.body.time || "").trim();
     const subject = String(req.body.subject || "").trim();
     const reason = String(req.body.reason || "").trim() || null;
 
-    if (!requesterName || !requesterFaculty || !day || !time || !subject) {
+    if (!requesterName || !requesterFaculty || !requestDate || !day || !time || !subject) {
       return res.status(400).json({
-        message: "requester, day, time and subject are required"
+        message: "requester, date, day, time and subject are required"
       });
     }
 
     const result = await query(
       `INSERT INTO faculty_requests
-       (requester_name, requester_faculty, department, year, semester, day, time, subject, reason)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [requesterName, requesterFaculty, department, year, semester, day, time, subject, reason]
+       (requester_name, requester_faculty, department, year, semester, request_date, day, time, subject, reason)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [requesterName, requesterFaculty, department, year, semester, requestDate, day, time, subject, reason]
     );
 
     res.json({ success: true, id: result.insertId });
@@ -804,20 +814,32 @@ const getFacultyRequestsController = async (req, res) => {
     await ensureFacultyRequestsTable();
 
     const facultyName = String(req.query.facultyName || "").trim();
+    const facultyDepartment = req.query.department
+      ? normalizeDepartment(req.query.department)
+      : "";
     const rows = await query(`
       SELECT id, requester_name AS requesterName, requester_faculty AS requesterFaculty,
-             department, year, semester, day, time, subject, reason, status,
+             department, year, semester, request_date AS requestDate, day, time, subject, reason, status,
              responder_name AS responderName, responder_faculty AS responderFaculty,
              created_at AS createdAt, updated_at AS updatedAt
       FROM faculty_requests
+      WHERE request_date >= CURDATE()
+        AND request_date IS NOT NULL
       ORDER BY FIELD(status, 'OPEN', 'ACCEPTED', 'DECLINED'), created_at DESC
     `);
 
     res.json({
       success: true,
       openRequests: rows.filter((request) => {
-        return request.status === "OPEN"
-          && (!facultyName || request.requesterFaculty.toLowerCase() !== facultyName.toLowerCase());
+        const isOwnRequest = facultyName
+          && request.requesterFaculty.toLowerCase() === facultyName.toLowerCase();
+        const isFirstYearRequest = Number(request.semester) <= 2;
+        const isSameDepartment = facultyDepartment
+          && normalizeDepartment(request.department) === facultyDepartment;
+
+        return request.status !== "DECLINED"
+          && !isOwnRequest
+          && (isFirstYearRequest || isSameDepartment);
       }),
       myRequests: rows.filter((request) => {
         return facultyName && request.requesterFaculty.toLowerCase() === facultyName.toLowerCase();
@@ -860,6 +882,234 @@ const acceptFacultyRequestController = async (req, res) => {
   }
 };
 
+async function ensureAttendanceTables() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS students (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      department VARCHAR(40) NOT NULL,
+      year INT NULL,
+      semester INT NOT NULL,
+      roll_number VARCHAR(50) NULL,
+      student_name VARCHAR(180) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS attendance_records (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      department VARCHAR(40) NOT NULL,
+      year INT NULL,
+      semester INT NOT NULL,
+      attendance_date DATE NOT NULL,
+      day VARCHAR(10) NOT NULL,
+      time VARCHAR(20) NOT NULL,
+      subject VARCHAR(180) NOT NULL,
+      faculty VARCHAR(180) NULL,
+      roll_number VARCHAR(50) NULL,
+      student_name VARCHAR(180) NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'PRESENT',
+      marked_by VARCHAR(180) NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+}
+
+function normalizeStudentRows(rows, defaults) {
+  return rows
+    .map((row) => {
+      const normalizedRow = normalizeRowKeys(row);
+      const rollNumber = String(getCellValue(normalizedRow, [
+        "roll_number",
+        "roll number",
+        "roll no",
+        "rollno",
+        "seat no",
+        "student id",
+        "id"
+      ]) || "").trim();
+      const studentName = String(getCellValue(normalizedRow, [
+        "student_name",
+        "student name",
+        "name",
+        "student"
+      ]) || "").trim();
+      return {
+        department: defaults.department,
+        year: defaults.year,
+        semester: defaults.semester,
+        rollNumber,
+        studentName
+      };
+    })
+    .filter((student) => student.studentName);
+}
+
+const uploadStudentsController = async (req, res) => {
+  try {
+    await ensureAttendanceTables();
+
+    if (!req.file) {
+      return res.status(400).json({ message: "Student Excel file is required" });
+    }
+
+    const department = normalizeDepartment(req.body.department);
+    const year = req.body.year ? Number(req.body.year) : inferYearFromSemester(req.body.semester);
+    const semester = normalizeSemesterValue(req.body.semester);
+
+    if (!semester) {
+      return res.status(400).json({ message: "semester is required" });
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const firstSheet = workbook.SheetNames[0];
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { defval: "" });
+    const students = normalizeStudentRows(rows, { department, year, semester });
+
+    if (!students.length) {
+      return res.status(400).json({ message: "No student rows found. Use columns like Roll Number and Student Name." });
+    }
+
+    await query(
+      "DELETE FROM students WHERE department = ? AND year <=> ? AND semester = ?",
+      [department, year || null, semester]
+    );
+
+    for (const student of students) {
+      await query(
+        `INSERT INTO students (department, year, semester, roll_number, student_name)
+         VALUES (?, ?, ?, ?, ?)`,
+        [
+          student.department,
+          student.year || year || null,
+          student.semester || semester,
+          student.rollNumber,
+          student.studentName
+        ]
+      );
+    }
+
+    res.json({ success: true, count: students.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Could not upload student list" });
+  }
+};
+
+const getStudentsController = async (req, res) => {
+  try {
+    await ensureAttendanceTables();
+
+    const department = normalizeDepartment(req.query.department);
+    const year = req.query.year ? Number(req.query.year) : null;
+    const semester = normalizeSemesterValue(req.query.semester);
+
+    const rows = await query(
+      `SELECT roll_number AS rollNumber, student_name AS studentName
+       FROM students
+       WHERE department = ? AND year <=> ? AND semester = ?
+       ORDER BY roll_number, student_name`,
+      [department, year, semester]
+    );
+
+    res.json({ success: true, students: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Could not load students" });
+  }
+};
+
+const getAttendanceController = async (req, res) => {
+  try {
+    await ensureAttendanceTables();
+
+    const department = normalizeDepartment(req.query.department);
+    const year = req.query.year ? Number(req.query.year) : null;
+    const semester = normalizeSemesterValue(req.query.semester);
+    const attendanceDate = String(req.query.attendanceDate || req.query.date || "").trim();
+    const day = String(req.query.day || "").trim().toUpperCase();
+    const time = String(req.query.time || "").trim();
+    const subject = String(req.query.subject || "").trim();
+
+    if (!attendanceDate || !semester || !day || !time || !subject) {
+      return res.json({ success: true, records: [] });
+    }
+
+    const rows = await query(
+      `SELECT roll_number AS rollNumber, student_name AS studentName, status
+       FROM attendance_records
+       WHERE department = ? AND year <=> ? AND semester = ?
+         AND attendance_date = ? AND day = ? AND time = ? AND subject = ?
+       ORDER BY roll_number, student_name`,
+      [department, year, semester, attendanceDate, day, time, subject]
+    );
+
+    res.json({ success: true, records: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Could not load attendance" });
+  }
+};
+
+const saveAttendanceController = async (req, res) => {
+  try {
+    await ensureAttendanceTables();
+
+    const department = normalizeDepartment(req.body.department);
+    const year = req.body.year ? Number(req.body.year) : null;
+    const semester = normalizeSemesterValue(req.body.semester);
+    const attendanceDate = String(req.body.attendanceDate || req.body.date || "").trim();
+    const day = String(req.body.day || "").trim().toUpperCase();
+    const time = String(req.body.time || "").trim();
+    const subject = String(req.body.subject || "").trim();
+    const faculty = String(req.body.faculty || "").trim();
+    const markedBy = String(req.body.markedBy || "").trim();
+    const records = Array.isArray(req.body.records) ? req.body.records : [];
+
+    if (!semester || !attendanceDate || !day || !time || !subject || !records.length) {
+      return res.status(400).json({ message: "Attendance date, slot, subject, and student records are required" });
+    }
+
+    await query(
+      `DELETE FROM attendance_records
+       WHERE department = ? AND year <=> ? AND semester = ?
+         AND attendance_date = ? AND day = ? AND time = ? AND subject = ?`,
+      [department, year, semester, attendanceDate, day, time, subject]
+    );
+
+    for (const record of records) {
+      const studentName = String(record.studentName || "").trim();
+      if (!studentName) continue;
+
+      await query(
+        `INSERT INTO attendance_records
+         (department, year, semester, attendance_date, day, time, subject, faculty, roll_number, student_name, status, marked_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          department,
+          year,
+          semester,
+          attendanceDate,
+          day,
+          time,
+          subject,
+          faculty,
+          String(record.rollNumber || "").trim(),
+          studentName,
+          String(record.status || "PRESENT").toUpperCase() === "ABSENT" ? "ABSENT" : "PRESENT",
+          markedBy
+        ]
+      );
+    }
+
+    res.json({ success: true, count: records.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Could not save attendance" });
+  }
+};
+
 module.exports = {
   uploadSubjectsController,
   getSubjectsController,
@@ -873,5 +1123,9 @@ module.exports = {
   getFacultyAvailabilityController,
   createFacultyRequestController,
   getFacultyRequestsController,
-  acceptFacultyRequestController
+  acceptFacultyRequestController,
+  uploadStudentsController,
+  getStudentsController,
+  getAttendanceController,
+  saveAttendanceController
 };

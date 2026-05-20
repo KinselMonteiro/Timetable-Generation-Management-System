@@ -21,11 +21,26 @@ function Home({ user, setPage }) {
 
   return (
     <div className="home-container">
-      <h1 className="welcome-text">Welcome, {user?.name}</h1>
-
-      <div className="highlight-box">
-        <h2>Academic Timetable Generation</h2>
-        <p>& Management</p>
+      <div className="dashboard-overview">
+        <div>
+          <p className="section-kicker">Overview</p>
+          <h1 className="welcome-text">Welcome, {user?.name}</h1>
+          <p className="section-copy">
+            Manage load sheets, generate clash-aware schedules, review saved timetables, and export approved grids.
+          </p>
+        </div>
+        <div className="overview-stats">
+          <div>
+            <strong>{saved.length}</strong>
+            <span>Saved timetables</span>
+          </div>
+          {user?.role === "admin" && (
+            <div>
+              <strong>{credentials.length || "-"}</strong>
+              <span>User accounts</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {message && <p className="status-message">{message}</p>}
@@ -68,25 +83,21 @@ function Home({ user, setPage }) {
       {user?.role === "admin" && (
         <div className="page-section">
           <div className="section-heading">
-            <p className="section-kicker">Login IDs</p>
-            <h2>Demo User Accounts</h2>
+            <p className="section-kicker">Access Control</p>
+            <h2>User Accounts</h2>
             <p className="section-copy">
-              Teacher accounts are created automatically from faculty names already present in the database.
+              Teacher accounts are created automatically from faculty names already present in the database. Login
+              details are kept outside the dashboard for privacy.
             </p>
           </div>
 
           <div className="summary-list">
-            {credentials.slice(0, 12).map((account) => (
-              <div className="summary-row" key={account.email}>
-                <strong>{account.name}</strong>
-                <span>{account.role}</span>
-                <span>{account.email}</span>
-                <span>{account.password}</span>
-              </div>
-            ))}
-            {credentials.length > 12 && (
-              <p className="section-copy">Showing first 12 accounts. All teacher passwords are teacher123.</p>
-            )}
+            <div className="summary-row">
+              <strong>{credentials.length} accounts ready</strong>
+              <span>{credentials.filter((account) => account.role === "admin").length} admin</span>
+              <span>{credentials.filter((account) => account.role === "teacher").length} teachers</span>
+              <span>{credentials.filter((account) => account.role === "student").length} students</span>
+            </div>
           </div>
         </div>
       )}
