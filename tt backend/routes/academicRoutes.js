@@ -20,6 +20,7 @@ const {
   getStudentsController,
   getAttendanceController,
   saveAttendanceController,
+  getAttendanceSummaryController,
 } = require("../controllers/academicController");
 
 router.post(
@@ -44,5 +45,6 @@ router.post("/upload-students", upload.single("file"), uploadStudentsController)
 router.get("/students", getStudentsController);
 router.get("/attendance", getAttendanceController);
 router.post("/attendance", saveAttendanceController);
+router.get("/attendance-summary", getAttendanceSummaryController);
 
 module.exports = router;

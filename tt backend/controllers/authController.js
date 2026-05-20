@@ -1,5 +1,10 @@
 const bcrypt = require("bcryptjs");
 const db = require("../config/db");
+const {
+  facultyDirectoryUsers,
+  facultyDirectoryByName,
+  normalizeDirectoryDepartment
+} = require("../config/facultyDirectory");
 
 function query(sql, params = []) {
   return new Promise((resolve, reject) => {
@@ -39,6 +44,11 @@ function splitFacultyNames(faculty) {
 }
 
 function normalizeDepartment(value) {
+  const directoryDepartment = normalizeDirectoryDepartment(value);
+  if (directoryDepartment) {
+    return directoryDepartment;
+  }
+
   const rawValue = String(value || "ECS").trim().toUpperCase();
   const compactValue = rawValue.replace(/[\s&/-]+/g, "_");
 
@@ -108,13 +118,14 @@ async function getFacultySeedUsers() {
     splitFacultyNames(row.faculty).forEach((name) => {
       const key = name.toLowerCase();
       if (!facultyMap.has(key)) {
+        const directoryUser = facultyDirectoryByName.get(key);
         facultyMap.set(key, {
-          name,
-          email: facultyEmail(name),
+          name: directoryUser?.name || name,
+          email: directoryUser?.email || facultyEmail(name),
           password: "teacher123",
           role: "teacher",
-          department: normalizeDepartment(row.department),
-          faculty_name: name
+          department: directoryUser?.department || normalizeDepartment(row.department),
+          faculty_name: directoryUser?.faculty_name || name
         });
       }
     });
@@ -200,7 +211,7 @@ async function ensureSeedUsers() {
     }
   ];
 
-  const users = [...fixedUsers, ...(await getFacultySeedUsers())];
+  const users = [...fixedUsers, ...(await getFacultySeedUsers()), ...facultyDirectoryUsers];
 
   for (const user of users) {
     await upsertUser(user);
@@ -243,7 +254,7 @@ const loginController = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        department: user.department || "ECS",
+        department: user.department || "UNASSIGNED",
         facultyName: user.faculty_name || null
       }
     });

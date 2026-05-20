@@ -394,8 +394,73 @@
   border-top: 1px solid rgba(35, 65, 94, 0.12);
 }
 
+.attendance-summary-panel {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid rgba(35, 65, 94, 0.1);
+  border-radius: 22px;
+  background: #fffdf9;
+}
+
+.attendance-summary-stats {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.attendance-summary-stats div {
+  min-width: 170px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: #f4efe4;
+}
+
+.attendance-summary-stats strong {
+  display: block;
+  color: #16213e;
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.attendance-summary-stats span {
+  display: block;
+  margin-top: 8px;
+  color: #526174;
+  font-weight: 700;
+}
+
 .attendance-row {
   grid-template-columns: 0.7fr 1.6fr 180px;
+}
+
+.attendance-percent-list {
+  max-height: 420px;
+  overflow: auto;
+}
+
+.attendance-percent-row {
+  grid-template-columns: 0.7fr 1.6fr 0.7fr 0.8fr 0.8fr;
+}
+
+.attendance-percent-header {
+  background: #eef3f5;
+  color: #16213e;
+  font-weight: 800;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.attendance-good {
+  color: #1f6b48;
+  font-weight: 800;
+}
+
+.attendance-low {
+  color: #9c3d2e;
+  font-weight: 800;
 }
 
 .attendance-action {
