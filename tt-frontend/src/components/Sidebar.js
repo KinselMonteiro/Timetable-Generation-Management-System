@@ -1,6 +1,6 @@
 import React from "react";
 
-function Sidebar({ setPage, user, onLogout }) {
+function Sidebar({ setPage, user, onLogout, page }) {
   const role = user?.role || "student";
   const items = role === "admin"
     ? [
@@ -10,7 +10,14 @@ function Sidebar({ setPage, user, onLogout }) {
         { id: "view", label: "View Timetable" }
       ]
     : role === "teacher"
-    ? [{ id: "teacher", label: "My Timetable" }]
+    ? [
+        { id: "teacher-timetable", label: "My Timetable" },
+        { id: "teacher-attendance", label: "Attendance" },
+        { id: "teacher-availability", label: "Free Faculty" },
+        { id: "teacher-request", label: "Send Request" },
+        { id: "teacher-notifications", label: "Requests Received" },
+        { id: "teacher-mine", label: "Requests Sent" }
+      ]
     : [{ id: "view", label: "View Timetable" }];
 
   return (
@@ -32,7 +39,7 @@ function Sidebar({ setPage, user, onLogout }) {
         {items.map((item) => (
           <button
             key={item.id}
-            className="sidebar-button"
+            className={`sidebar-button ${page === item.id ? "active" : ""}`}
             onClick={() => setPage(item.id)}
           >
             {item.label}

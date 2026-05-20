@@ -13,8 +13,36 @@ const REQUEST_TIMES = [
   "15:00-16:00",
   "16:00-17:00"
 ];
+const DEPARTMENTS = ["ECS", "COMP", "MECH", "CIVIL", "SCIENCE_HUMANITIES"];
+const DATE_DAY_NAMES = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
-function TeacherTimetable({ user }) {
+function todayInputValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatRequestDate(value) {
+  if (!value) return "";
+  return String(value).slice(0, 10);
+}
+
+function displayRequestDate(value) {
+  return formatRequestDate(value) || "Date not set";
+}
+
+function displayRequestStatus(status) {
+  if (status === "OPEN") return "Pending";
+  if (status === "ACCEPTED") return "Accepted";
+  if (status === "DECLINED") return "Declined";
+  return status || "Pending";
+}
+
+function dayFromDate(value) {
+  if (!value) return "";
+  const date = new Date(`${value}T00:00:00`);
+  return DATE_DAY_NAMES[date.getDay()] || "";
+}
+
+function TeacherTimetable({ user, activeTab = "timetable" }) {
   const [slots, setSlots] = useState([]);
   const [message, setMessage] = useState("");
   const [requestMessage, setRequestMessage] = useState("");
@@ -22,6 +50,18 @@ function TeacherTimetable({ user }) {
   const [availableFaculty, setAvailableFaculty] = useState([]);
   const [openRequests, setOpenRequests] = useState([]);
   const [myRequests, setMyRequests] = useState([]);
+  const [attendanceSlots, setAttendanceSlots] = useState([]);
+  const [attendanceStudents, setAttendanceStudents] = useState([]);
+  const [attendanceRecords, setAttendanceRecords] = useState({});
+  const [selectedAttendanceSlot, setSelectedAttendanceSlot] = useState(null);
+  const [attendanceFile, setAttendanceFile] = useState(null);
+  const [attendanceMessage, setAttendanceMessage] = useState("");
+  const [attendanceForm, setAttendanceForm] = useState({
+    department: user?.department || "ECS",
+    year: "4",
+    semester: "7",
+    attendanceDate: todayInputValue()
+  });
   const [notificationPermission, setNotificationPermission] = useState(() => {
     if (typeof window === "undefined" || !("Notification" in window)) {
       return "unsupported";
@@ -35,6 +75,7 @@ function TeacherTimetable({ user }) {
     department: user?.department || "ECS",
     year: "2",
     semester: "3",
+    requestDate: todayInputValue(),
     day: "MON",
     time: "09:00-10:00",
     subject: "",
@@ -63,16 +104,12 @@ function TeacherTimetable({ user }) {
   }, [user]);
 
   const showDesktopNotification = useCallback((request) => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      return;
-    }
-
-    if (window.Notification.permission !== "granted") {
-      return;
-    }
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (window.Notification.permission !== "granted") return;
 
     const requestSubject = request.subject || "Substitution request";
-    const requestTime = [request.day, request.time].filter(Boolean).join(" ");
+    const requestDate = formatRequestDate(request.requestDate);
+    const requestTime = [requestDate, request.day, request.time].filter(Boolean).join(" ");
 
     try {
       new window.Notification("New faculty request", {
@@ -87,7 +124,10 @@ function TeacherTimetable({ user }) {
 
   const loadRequests = useCallback(() => {
     API.get("/faculty-requests", {
-      params: { facultyName: user?.facultyName || "" }
+      params: {
+        facultyName: user?.facultyName || "",
+        department: user?.department || ""
+      }
     })
       .then((res) => {
         const nextOpenRequests = res.data.openRequests || [];
@@ -121,6 +161,13 @@ function TeacherTimetable({ user }) {
 
   const updateRequestForm = (field, value) => {
     setRequestForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const updateAttendanceForm = (field, value) => {
+    setAttendanceForm((current) => ({ ...current, [field]: value }));
+    setSelectedAttendanceSlot(null);
+    setAttendanceStudents([]);
+    setAttendanceRecords({});
   };
 
   const enableDesktopNotifications = async () => {
@@ -198,32 +245,212 @@ function TeacherTimetable({ user }) {
     }
   };
 
+  const loadAttendanceTimetable = async () => {
+    setAttendanceMessage("");
+    setSelectedAttendanceSlot(null);
+    setAttendanceStudents([]);
+    setAttendanceRecords({});
+
+    try {
+      const res = await API.get("/timetable", {
+        params: {
+          department: attendanceForm.department,
+          year: Number(attendanceForm.year),
+          semester: Number(attendanceForm.semester)
+        }
+      });
+      const selectedDay = dayFromDate(attendanceForm.attendanceDate);
+      const nextSlots = (res.data.slots || []).filter((slot) => {
+        return slot.subject && slot.day === selectedDay;
+      });
+      setAttendanceSlots(nextSlots);
+      setAttendanceMessage(nextSlots.length ? "" : `No ${selectedDay || "selected day"} slots found for this class.`);
+    } catch (err) {
+      setAttendanceSlots([]);
+      setAttendanceMessage(err.response?.data?.message || "Could not load saved timetable.");
+    }
+  };
+
+  const uploadStudents = async () => {
+    if (!attendanceFile) {
+      setAttendanceMessage("Choose a student Excel file first.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", attendanceFile);
+    formData.append("department", attendanceForm.department);
+    formData.append("year", attendanceForm.year);
+    formData.append("semester", attendanceForm.semester);
+
+    try {
+      const res = await API.post("/upload-students", formData);
+      setAttendanceMessage(`Student list uploaded. ${res.data.count || 0} students saved.`);
+      if (selectedAttendanceSlot) {
+        await loadStudentsForSlot(selectedAttendanceSlot);
+      }
+    } catch (err) {
+      const status = err.response?.status;
+      const backendMessage = err.response?.data?.message;
+      setAttendanceMessage(
+        backendMessage
+          || (status ? `Could not upload student list. Backend returned ${status}. Restart the backend if this continues.` : "Could not upload student list. Check that the backend is running on port 5003.")
+      );
+    }
+  };
+
+  const loadStudentsForSlot = async (slot) => {
+    setSelectedAttendanceSlot(slot);
+    setAttendanceMessage("");
+
+    try {
+      const res = await API.get("/students", {
+        params: {
+          department: attendanceForm.department,
+          year: Number(attendanceForm.year),
+          semester: Number(attendanceForm.semester)
+        }
+      });
+      const students = res.data.students || [];
+      const existing = await API.get("/attendance", {
+        params: {
+          department: attendanceForm.department,
+          year: Number(attendanceForm.year),
+          semester: Number(attendanceForm.semester),
+          attendanceDate: attendanceForm.attendanceDate,
+          day: slot.day,
+          time: slot.time,
+          subject: slot.subject
+        }
+      });
+      const savedByStudent = new Map((existing.data.records || []).map((record) => [
+        `${record.rollNumber || ""}-${record.studentName || ""}`,
+        record.status
+      ]));
+
+      setAttendanceStudents(students);
+      setAttendanceRecords(students.reduce((result, student) => {
+        const key = `${student.rollNumber || ""}-${student.studentName || ""}`;
+        result[key] = savedByStudent.get(key) || "PRESENT";
+        return result;
+      }, {}));
+      setAttendanceMessage(students.length ? "" : "No students found. Upload the student Excel for this semester first.");
+    } catch (err) {
+      setAttendanceStudents([]);
+      setAttendanceRecords({});
+      setAttendanceMessage(err.response?.data?.message || "Could not load students for attendance.");
+    }
+  };
+
+  const toggleAttendance = (student, status) => {
+    const key = `${student.rollNumber || ""}-${student.studentName || ""}`;
+    setAttendanceRecords((current) => ({ ...current, [key]: status }));
+  };
+
+  const saveAttendance = async () => {
+    if (!selectedAttendanceSlot) {
+      setAttendanceMessage("Choose a timetable slot first.");
+      return;
+    }
+
+    try {
+      await API.post("/attendance", {
+        department: attendanceForm.department,
+        year: Number(attendanceForm.year),
+        semester: Number(attendanceForm.semester),
+        attendanceDate: attendanceForm.attendanceDate,
+        day: selectedAttendanceSlot.day,
+        time: selectedAttendanceSlot.time,
+        subject: selectedAttendanceSlot.subject,
+        faculty: selectedAttendanceSlot.faculty,
+        markedBy: user?.facultyName || user?.name,
+        records: attendanceStudents.map((student) => {
+          const key = `${student.rollNumber || ""}-${student.studentName || ""}`;
+          return {
+            rollNumber: student.rollNumber,
+            studentName: student.studentName,
+            status: attendanceRecords[key] || "PRESENT"
+          };
+        })
+      });
+      setAttendanceMessage("Attendance saved for this date and slot.");
+    } catch (err) {
+      setAttendanceMessage(err.response?.data?.message || "Could not save attendance.");
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "attendance") {
+      loadAttendanceTimetable();
+    }
+  }, [
+    activeTab,
+    attendanceForm.department,
+    attendanceForm.year,
+    attendanceForm.semester,
+    attendanceForm.attendanceDate
+  ]);
+
   const sortedSlots = [...slots].sort((left, right) => {
     return DAY_ORDER.indexOf(left.day) - DAY_ORDER.indexOf(right.day)
       || left.time.localeCompare(right.time)
       || String(left.department).localeCompare(String(right.department));
   });
+  const selectedAttendanceDay = dayFromDate(attendanceForm.attendanceDate);
+  const attendanceDepartments = user?.department ? [user.department] : DEPARTMENTS;
 
-  return (
-    <div className="page-section">
-      <div className="section-heading section-heading-row">
-        <div>
-          <p className="section-kicker">Teacher View</p>
-          <h2>{user?.facultyName || user?.name}'s Timetable</h2>
-          <p className="section-copy">
-            View your saved classes, check free faculty, and send substitution requests.
-          </p>
-        </div>
-        <button className="secondary-button" onClick={() => {
-          loadTeacherTimetable();
-          loadRequests();
-        }}>
-          Refresh
-        </button>
-      </div>
+  const requestMetaFields = (
+    <>
+      <label className="selection-field">
+        <span>Department</span>
+        <select value={requestForm.department} onChange={(event) => updateRequestForm("department", event.target.value)}>
+          <option value="ECS">ECS</option>
+          <option value="COMP">COMP</option>
+          <option value="MECH">MECH</option>
+          <option value="CIVIL">CIVIL</option>
+          <option value="SCIENCE_HUMANITIES">Science & Humanities</option>
+        </select>
+      </label>
+      <label className="selection-field">
+        <span>Year</span>
+        <select value={requestForm.year} onChange={(event) => updateRequestForm("year", event.target.value)}>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+        </select>
+      </label>
+      <label className="selection-field">
+        <span>Semester</span>
+        <select value={requestForm.semester} onChange={(event) => updateRequestForm("semester", event.target.value)}>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+        </select>
+      </label>
+      <label className="selection-field">
+        <span>Day</span>
+        <select value={requestForm.day} onChange={(event) => updateRequestForm("day", event.target.value)}>
+          {DAY_ORDER.map((day) => <option key={day} value={day}>{day}</option>)}
+        </select>
+      </label>
+      <label className="selection-field">
+        <span>Time</span>
+        <select value={requestForm.time} onChange={(event) => updateRequestForm("time", event.target.value)}>
+          {REQUEST_TIMES.map((time) => <option key={time} value={time}>{time}</option>)}
+        </select>
+      </label>
+    </>
+  );
 
+  const renderTimetable = () => (
+    <>
       {message && <p className="status-message">{message}</p>}
-
       <div className="timetable-wrap">
         <table className="timetable-table compact-table">
           <thead>
@@ -253,153 +480,240 @@ function TeacherTimetable({ user }) {
           </tbody>
         </table>
       </div>
+    </>
+  );
 
-      <div className="page-section">
-        <div className="section-heading">
-          <p className="section-kicker">Availability</p>
-          <h2>Find Free Faculty</h2>
-          <p className="section-copy">
-            Pick a day and slot to see who is not busy in saved timetables.
-          </p>
-        </div>
-
-        <div className="action-panel">
-          <label className="selection-field">
-            <span>Department</span>
-            <select value={requestForm.department} onChange={(event) => updateRequestForm("department", event.target.value)}>
-              <option value="ECS">ECS</option>
-              <option value="COMP">COMP</option>
-              <option value="MECH">MECH</option>
-              <option value="CIVIL">CIVIL</option>
-              <option value="SCIENCE_HUMANITIES">Science & Humanities</option>
-            </select>
-          </label>
-          <label className="selection-field">
-            <span>Year</span>
-            <select value={requestForm.year} onChange={(event) => updateRequestForm("year", event.target.value)}>
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-            </select>
-          </label>
-          <label className="selection-field">
-            <span>Semester</span>
-            <select value={requestForm.semester} onChange={(event) => updateRequestForm("semester", event.target.value)}>
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="5">5</option>
-              <option value="6">6</option>
-              <option value="7">7</option>
-              <option value="8">8</option>
-            </select>
-          </label>
-          <label className="selection-field">
-            <span>Day</span>
-            <select value={requestForm.day} onChange={(event) => updateRequestForm("day", event.target.value)}>
-              {DAY_ORDER.map((day) => <option key={day} value={day}>{day}</option>)}
-            </select>
-          </label>
-          <label className="selection-field">
-            <span>Time</span>
-            <select value={requestForm.time} onChange={(event) => updateRequestForm("time", event.target.value)}>
-              {REQUEST_TIMES.map((time) => <option key={time} value={time}>{time}</option>)}
-            </select>
-          </label>
-          <button className="primary-button" onClick={checkAvailability}>Check Availability</button>
-        </div>
-
-        {availabilityMessage && <p className="status-message">{availabilityMessage}</p>}
-        {!!availableFaculty.length && (
-          <div className="status-message">
-            <strong>Available Faculty:</strong> {availableFaculty.join(", ")}
-          </div>
-        )}
+  const renderAvailability = () => (
+    <>
+      <div className="section-heading">
+        <p className="section-kicker">Availability</p>
+        <h2>Find Free Faculty</h2>
+        <p className="section-copy">Pick a day and slot to see who is not busy in saved timetables.</p>
       </div>
+      <div className="action-panel">{requestMetaFields}<button className="primary-button" onClick={checkAvailability}>Check Availability</button></div>
+      {availabilityMessage && <p className="status-message">{availabilityMessage}</p>}
+      {!!availableFaculty.length && <div className="status-message"><strong>Available Faculty:</strong> {availableFaculty.join(", ")}</div>}
+    </>
+  );
 
-      <div className="page-section">
-        <div className="section-heading">
-          <p className="section-kicker">Substitution Request</p>
-          <h2>Ask Another Faculty To Cover</h2>
-        </div>
-
-        <div className="action-panel">
-          <label className="selection-field request-field-wide">
-            <span>Subject / Class</span>
-            <input
-              value={requestForm.subject}
-              onChange={(event) => updateRequestForm("subject", event.target.value)}
-              placeholder="Eg. Strength of Materials"
-            />
-          </label>
-          <label className="selection-field request-field-wide">
-            <span>Reason</span>
-            <input
-              value={requestForm.reason}
-              onChange={(event) => updateRequestForm("reason", event.target.value)}
-              placeholder="Eg. Not available for this hour"
-            />
-          </label>
-          <button className="primary-button" onClick={sendRequest}>Send Request</button>
-        </div>
-
-        {requestMessage && <p className="status-message">{requestMessage}</p>}
+  const renderRequest = () => (
+    <>
+      <div className="section-heading">
+        <p className="section-kicker">Leave / Cover Request</p>
+        <h2>Ask Another Faculty To Take The Class</h2>
+        <p className="section-copy">Add the exact class details so the request is clear to everyone.</p>
       </div>
+      <div className="action-panel">
+        {requestMetaFields}
+        <label className="selection-field">
+          <span>Date</span>
+          <input type="date" value={requestForm.requestDate} onChange={(event) => updateRequestForm("requestDate", event.target.value)} />
+        </label>
+        <label className="selection-field request-field-wide">
+          <span>Subject / Class</span>
+          <input value={requestForm.subject} onChange={(event) => updateRequestForm("subject", event.target.value)} placeholder="Eg. Strength of Materials" />
+        </label>
+        <label className="selection-field request-field-wide">
+          <span>Reason</span>
+          <input value={requestForm.reason} onChange={(event) => updateRequestForm("reason", event.target.value)} placeholder="Eg. Leave, meeting, not available for this hour" />
+        </label>
+        <button className="primary-button" onClick={sendRequest}>Send Request</button>
+      </div>
+      {requestMessage && <p className="status-message">{requestMessage}</p>}
+    </>
+  );
 
-      <div className="page-section">
-        <div className="section-heading">
-          <p className="section-kicker">Notifications</p>
-          <h2>Open Requests From Other Faculty</h2>
-          <p className="section-copy">
-            Enable desktop alerts to see new requests in your system notification bar while this page is open.
-          </p>
-        </div>
-
-        <div className="notification-toolbar">
-          <button
-            className="secondary-button"
-            onClick={enableDesktopNotifications}
-            disabled={notificationPermission === "granted" || notificationPermission === "unsupported"}
-          >
-            {notificationPermission === "granted" ? "Desktop Notifications On" : "Enable Desktop Notifications"}
-          </button>
-          <span className={`notification-pill notification-${notificationPermission}`}>
-            {notificationPermission === "unsupported" ? "Not supported" : notificationPermission}
-          </span>
-        </div>
-
-        <div className="summary-list">
-          {openRequests.length ? openRequests.map((request) => (
-            <div className="summary-row request-row" key={request.id}>
-              <strong>{request.subject}</strong>
-              <span>{request.department} Y{request.year || "-"} S{request.semester || "-"}</span>
-              <span>{request.day} {request.time}</span>
-              <span>From {request.requesterFaculty}</span>
+  const renderNotifications = () => (
+    <>
+      <div className="section-heading">
+        <p className="section-kicker">Notifications</p>
+        <h2>Requests Received From Other Faculty</h2>
+        <p className="section-copy">
+          Sem 3-8 requests are shown only inside your department. Sem 1-2 requests are universal because first-year
+          classes can be handled by the shared Science & Humanities pool.
+        </p>
+      </div>
+      <div className="notification-toolbar">
+        <button className="secondary-button" onClick={enableDesktopNotifications} disabled={notificationPermission === "granted" || notificationPermission === "unsupported"}>
+          {notificationPermission === "granted" ? "Desktop Notifications On" : "Enable Desktop Notifications"}
+        </button>
+        <span className={`notification-pill notification-${notificationPermission}`}>
+          {notificationPermission === "unsupported" ? "Not supported" : notificationPermission}
+        </span>
+      </div>
+      {requestMessage && <p className="status-message">{requestMessage}</p>}
+      <div className="summary-list">
+        {openRequests.length ? openRequests.map((request) => (
+          <div className="summary-row request-row" key={request.id}>
+            <strong>{request.subject || "Class cover request"}</strong>
+            <span>{request.department} Y{request.year || "-"} S{request.semester || "-"}</span>
+            <span>{displayRequestDate(request.requestDate)} {request.day} {request.time}</span>
+            <span>From {request.requesterFaculty || request.requesterName}</span>
+            <span>{request.responderFaculty ? `Accepted by ${request.responderFaculty}` : displayRequestStatus(request.status)}</span>
+            {request.status === "OPEN" ? (
               <button className="secondary-button" onClick={() => acceptRequest(request.id)}>Accept</button>
-            </div>
-          )) : <p className="status-message">No open requests right now.</p>}
-        </div>
+            ) : (
+              <span className="request-accepted-label">Covered</span>
+            )}
+          </div>
+        )) : <p className="status-message">No active requests right now.</p>}
+      </div>
+    </>
+  );
+
+  const renderMyRequests = () => (
+    <>
+      <div className="section-heading">
+        <p className="section-kicker">My Requests</p>
+        <h2>Requests Sent By Me</h2>
+      </div>
+      <div className="summary-list">
+        {myRequests.length ? myRequests.map((request) => (
+          <div className="summary-row" key={request.id}>
+            <strong>{request.subject || "Class cover request"}</strong>
+            <span>{displayRequestDate(request.requestDate)} {request.day} {request.time}</span>
+            <span>{displayRequestStatus(request.status)}</span>
+            <span>{request.responderFaculty ? `Accepted by ${request.responderFaculty}` : "Waiting"}</span>
+          </div>
+        )) : <p className="status-message">You have not sent any requests yet.</p>}
+      </div>
+    </>
+  );
+
+  const renderAttendance = () => (
+    <>
+      <div className="section-heading">
+        <p className="section-kicker">Attendance</p>
+        <h2>Saved Timetable Attendance</h2>
+        <p className="section-copy">
+          Showing {selectedAttendanceDay || "the selected day"} slots only. Choose a class slot, then mark attendance for the selected date.
+        </p>
       </div>
 
-      <div className="page-section">
-        <div className="section-heading">
-          <p className="section-kicker">My Requests</p>
-          <h2>Requests Sent By Me</h2>
-        </div>
-
-        <div className="summary-list">
-          {myRequests.length ? myRequests.map((request) => (
-            <div className="summary-row" key={request.id}>
-              <strong>{request.subject}</strong>
-              <span>{request.day} {request.time}</span>
-              <span>{request.status}</span>
-              <span>{request.responderFaculty ? `Accepted by ${request.responderFaculty}` : "Waiting"}</span>
-            </div>
-          )) : <p className="status-message">You have not sent any requests yet.</p>}
-        </div>
+      <div className="action-panel">
+        <label className="selection-field">
+          <span>Department</span>
+          <select value={attendanceForm.department} onChange={(event) => updateAttendanceForm("department", event.target.value)}>
+            {attendanceDepartments.map((department) => (
+              <option key={department} value={department}>{department === "SCIENCE_HUMANITIES" ? "Science & Humanities" : department}</option>
+            ))}
+          </select>
+        </label>
+        <label className="selection-field">
+          <span>Year</span>
+          <select value={attendanceForm.year} onChange={(event) => updateAttendanceForm("year", event.target.value)}>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+        </label>
+        <label className="selection-field">
+          <span>Semester</span>
+          <select value={attendanceForm.semester} onChange={(event) => updateAttendanceForm("semester", event.target.value)}>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+          </select>
+        </label>
+        <label className="selection-field">
+          <span>Date</span>
+          <input type="date" value={attendanceForm.attendanceDate} onChange={(event) => updateAttendanceForm("attendanceDate", event.target.value)} />
+        </label>
+        <button className="primary-button" onClick={loadAttendanceTimetable}>Refresh Day Slots</button>
       </div>
+
+      <div className="action-panel">
+        <label className="selection-field request-field-wide">
+          <span>Student Excel</span>
+          <input type="file" accept=".xlsx,.xls" onChange={(event) => setAttendanceFile(event.target.files?.[0] || null)} />
+        </label>
+        <button className="secondary-button" onClick={uploadStudents}>Upload Student List</button>
+      </div>
+
+      {attendanceMessage && <p className="status-message">{attendanceMessage}</p>}
+
+      {!!attendanceSlots.length && (
+        <div className="summary-list attendance-slot-list">
+          {attendanceSlots.map((slot, index) => (
+            <div
+              className={`summary-row attendance-slot-button ${selectedAttendanceSlot === slot ? "active" : ""}`}
+              key={`${slot.day}-${slot.time}-${slot.subject}-${index}`}
+            >
+              <strong>{slot.subject}</strong>
+              <span>{slot.time}</span>
+              <span>{slot.faculty || "Faculty not set"}</span>
+              <span>{slot.day}</span>
+              <button className="secondary-button attendance-action" onClick={() => loadStudentsForSlot(slot)}>Take Attendance</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!!attendanceStudents.length && selectedAttendanceSlot && (
+        <div className="attendance-panel">
+          <div className="section-heading section-heading-row">
+            <div>
+              <p className="section-kicker">{selectedAttendanceSlot.day} {selectedAttendanceSlot.time}</p>
+              <h2>{selectedAttendanceSlot.subject}</h2>
+              <p className="section-copy">Mark students present or absent for {attendanceForm.attendanceDate}.</p>
+            </div>
+            <button className="primary-button" onClick={saveAttendance}>Save Attendance</button>
+          </div>
+
+          <div className="summary-list">
+            {attendanceStudents.map((student) => {
+              const key = `${student.rollNumber || ""}-${student.studentName || ""}`;
+              return (
+                <div className="summary-row attendance-row" key={key}>
+                  <strong>{student.rollNumber || "-"}</strong>
+                  <span>{student.studentName}</span>
+                  <select value={attendanceRecords[key] || "PRESENT"} onChange={(event) => toggleAttendance(student, event.target.value)}>
+                    <option value="PRESENT">Present</option>
+                    <option value="ABSENT">Absent</option>
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  const renderActiveTab = () => {
+    if (activeTab === "attendance") return renderAttendance();
+    if (activeTab === "availability") return renderAvailability();
+    if (activeTab === "request") return renderRequest();
+    if (activeTab === "notifications") return renderNotifications();
+    if (activeTab === "mine") return renderMyRequests();
+    return renderTimetable();
+  };
+
+  return (
+    <div className="page-section">
+      <div className="section-heading section-heading-row">
+        <div>
+          <p className="section-kicker">Teacher View</p>
+          <h2>{user?.facultyName || user?.name}'s Workspace</h2>
+          <p className="section-copy">View classes, check faculty availability, and manage leave or substitution requests.</p>
+        </div>
+        <button className="secondary-button" onClick={() => {
+          loadTeacherTimetable();
+          loadRequests();
+        }}>
+          Refresh
+        </button>
+      </div>
+
+      <section className="teacher-tab-panel">
+        {renderActiveTab()}
+      </section>
     </div>
   );
 }

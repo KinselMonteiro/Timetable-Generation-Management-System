@@ -25,7 +25,7 @@ function App() {
     if (!user) return;
 
     if (user.role === "teacher") {
-      setPage("teacher");
+      setPage("teacher-timetable");
       return;
     }
 
@@ -59,7 +59,9 @@ function App() {
   const role = user.role;
 
   const renderPage = () => {
-    if (role === "teacher") return <TeacherTimetable user={user} />;
+    if (role === "teacher") {
+      return <TeacherTimetable user={user} activeTab={page.replace("teacher-", "")} />;
+    }
 
     if (page === "home") return <Home user={user} setPage={setPage} />;
     if (role === "admin" && page === "upload") {
@@ -97,13 +99,21 @@ function App() {
 
   return (
     <div className="app-layout">
-      <Sidebar setPage={setPage} user={user} onLogout={logout} />
+      <Sidebar setPage={setPage} user={user} onLogout={logout} page={page} />
       <div className="main-content">
         <div className="page-shell">
           <div className="topbar">
             <div>
               <p className="eyebrow">{role} dashboard</p>
-              <h1 className="page-title">Academic Timetable Studio</h1>
+              <h1 className="page-title">Academic Timetable Generation and Management System</h1>
+              <p className="dashboard-date">
+                {new Date().toLocaleDateString("en-IN", {
+                  weekday: "long",
+                  day: "2-digit",
+                  month: "long",
+                  year: "numeric"
+                })}
+              </p>
             </div>
 
             {role !== "teacher" && (
