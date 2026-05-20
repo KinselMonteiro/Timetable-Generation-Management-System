@@ -56,6 +56,11 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
   const [selectedAttendanceSlot, setSelectedAttendanceSlot] = useState(null);
   const [attendanceFile, setAttendanceFile] = useState(null);
   const [attendanceMessage, setAttendanceMessage] = useState("");
+  const [attendanceSummaryMessage, setAttendanceSummaryMessage] = useState("");
+  const [attendanceSummary, setAttendanceSummary] = useState({
+    totalConducted: 0,
+    students: []
+  });
   const [attendanceForm, setAttendanceForm] = useState({
     department: user?.department || "ECS",
     year: "4",
@@ -168,6 +173,7 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
     setSelectedAttendanceSlot(null);
     setAttendanceStudents([]);
     setAttendanceRecords({});
+    setAttendanceSummary({ totalConducted: 0, students: [] });
   };
 
   const enableDesktopNotifications = async () => {
@@ -271,6 +277,30 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
     }
   };
 
+  const loadAttendanceSummary = async () => {
+    setAttendanceSummaryMessage("");
+
+    try {
+      const res = await API.get("/attendance-summary", {
+        params: {
+          department: attendanceForm.department,
+          year: Number(attendanceForm.year),
+          semester: Number(attendanceForm.semester)
+        }
+      });
+      setAttendanceSummary({
+        totalConducted: res.data.totalConducted || 0,
+        students: res.data.students || []
+      });
+      if (!res.data.totalConducted) {
+        setAttendanceSummaryMessage("No attendance sessions have been saved for this class yet.");
+      }
+    } catch (err) {
+      setAttendanceSummary({ totalConducted: 0, students: [] });
+      setAttendanceSummaryMessage(err.response?.data?.message || "Could not calculate attendance percentage.");
+    }
+  };
+
   const uploadStudents = async () => {
     if (!attendanceFile) {
       setAttendanceMessage("Choose a student Excel file first.");
@@ -286,6 +316,7 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
     try {
       const res = await API.post("/upload-students", formData);
       setAttendanceMessage(`Student list uploaded. ${res.data.count || 0} students saved.`);
+      await loadAttendanceSummary();
       if (selectedAttendanceSlot) {
         await loadStudentsForSlot(selectedAttendanceSlot);
       }
@@ -374,6 +405,7 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
         })
       });
       setAttendanceMessage("Attendance saved for this date and slot.");
+      await loadAttendanceSummary();
     } catch (err) {
       setAttendanceMessage(err.response?.data?.message || "Could not save attendance.");
     }
@@ -382,6 +414,7 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
   useEffect(() => {
     if (activeTab === "attendance") {
       loadAttendanceTimetable();
+      loadAttendanceSummary();
     }
   }, [
     activeTab,
@@ -637,6 +670,55 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
       </div>
 
       {attendanceMessage && <p className="status-message">{attendanceMessage}</p>}
+
+      <div className="attendance-summary-panel">
+        <div className="section-heading section-heading-row">
+          <div>
+            <p className="section-kicker">Attendance Percentage</p>
+            <h2>Class Attendance Summary</h2>
+            <p className="section-copy">
+              Formula: attended classes / conducted classes x 100. This recalculates from all saved attendance records.
+            </p>
+          </div>
+          <button className="secondary-button" onClick={loadAttendanceSummary}>Refresh Summary</button>
+        </div>
+
+        <div className="attendance-summary-stats">
+          <div>
+            <strong>{attendanceSummary.totalConducted}</strong>
+            <span>Classes conducted</span>
+          </div>
+          <div>
+            <strong>{attendanceSummary.students.length}</strong>
+            <span>Students tracked</span>
+          </div>
+        </div>
+
+        {attendanceSummaryMessage && <p className="status-message">{attendanceSummaryMessage}</p>}
+
+        {!!attendanceSummary.students.length && (
+          <div className="summary-list attendance-percent-list">
+            <div className="summary-row attendance-percent-row attendance-percent-header">
+              <strong>Roll No.</strong>
+              <span>Student</span>
+              <span>Attended</span>
+              <span>Conducted</span>
+              <span>Attendance</span>
+            </div>
+            {attendanceSummary.students.map((student) => (
+              <div className="summary-row attendance-percent-row" key={`${student.rollNumber || ""}-${student.studentName || ""}`}>
+                <strong>{student.rollNumber || "-"}</strong>
+                <span>{student.studentName}</span>
+                <span>{student.attended}</span>
+                <span>{student.totalConducted}</span>
+                <span className={student.percentage < 75 ? "attendance-low" : "attendance-good"}>
+                  {student.percentage.toFixed(2)}%
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {!!attendanceSlots.length && (
         <div className="summary-list attendance-slot-list">

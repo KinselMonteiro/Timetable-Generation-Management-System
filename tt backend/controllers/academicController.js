@@ -1110,6 +1110,92 @@ const saveAttendanceController = async (req, res) => {
   }
 };
 
+const getAttendanceSummaryController = async (req, res) => {
+  try {
+    await ensureAttendanceTables();
+
+    const department = normalizeDepartment(req.query.department);
+    const year = req.query.year ? Number(req.query.year) : null;
+    const semester = normalizeSemesterValue(req.query.semester);
+
+    if (!semester) {
+      return res.status(400).json({ message: "department, year and semester are required" });
+    }
+
+    const totalRows = await query(
+      `SELECT COUNT(DISTINCT CONCAT(attendance_date, '|', day, '|', time, '|', subject)) AS totalConducted
+       FROM attendance_records
+       WHERE department = ? AND year <=> ? AND semester = ?`,
+      [department, year, semester]
+    );
+    const totalConducted = Number(totalRows[0]?.totalConducted || 0);
+
+    const studentRows = await query(
+      `SELECT roll_number AS rollNumber, student_name AS studentName
+       FROM students
+       WHERE department = ? AND year <=> ? AND semester = ?
+       ORDER BY roll_number, student_name`,
+      [department, year, semester]
+    );
+
+    const attendanceRows = await query(
+      `SELECT roll_number AS rollNumber, student_name AS studentName,
+              SUM(CASE WHEN status = 'PRESENT' THEN 1 ELSE 0 END) AS attended,
+              COUNT(*) AS recorded
+       FROM attendance_records
+       WHERE department = ? AND year <=> ? AND semester = ?
+       GROUP BY roll_number, student_name
+       ORDER BY roll_number, student_name`,
+      [department, year, semester]
+    );
+
+    const attendanceByStudent = new Map(attendanceRows.map((row) => [
+      `${row.rollNumber || ""}-${row.studentName || ""}`,
+      {
+        attended: Number(row.attended || 0),
+        recorded: Number(row.recorded || 0)
+      }
+    ]));
+    const mergedStudents = new Map();
+
+    studentRows.forEach((student) => {
+      mergedStudents.set(`${student.rollNumber || ""}-${student.studentName || ""}`, student);
+    });
+    attendanceRows.forEach((student) => {
+      mergedStudents.set(`${student.rollNumber || ""}-${student.studentName || ""}`, {
+        rollNumber: student.rollNumber,
+        studentName: student.studentName
+      });
+    });
+
+    const summary = [...mergedStudents.values()].map((student) => {
+      const key = `${student.rollNumber || ""}-${student.studentName || ""}`;
+      const attendance = attendanceByStudent.get(key) || { attended: 0, recorded: 0 };
+      const percentage = totalConducted
+        ? Number(((attendance.attended / totalConducted) * 100).toFixed(2))
+        : 0;
+
+      return {
+        rollNumber: student.rollNumber,
+        studentName: student.studentName,
+        attended: attendance.attended,
+        totalConducted,
+        recorded: attendance.recorded,
+        percentage
+      };
+    });
+
+    res.json({
+      success: true,
+      totalConducted,
+      students: summary
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Could not calculate attendance summary" });
+  }
+};
+
 module.exports = {
   uploadSubjectsController,
   getSubjectsController,
@@ -1127,5 +1213,6 @@ module.exports = {
   uploadStudentsController,
   getStudentsController,
   getAttendanceController,
-  saveAttendanceController
+  saveAttendanceController,
+  getAttendanceSummaryController
 };
