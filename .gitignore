@@ -6,3 +6,13 @@ dist/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+<<<<<<< HEAD
+=======
+
+node_modules/
+.env
+build/
+dist/
+.DS_Store
+__MACOSX/
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)

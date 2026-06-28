@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 .tt-table {
   border-collapse: collapse;
   width: 100%;
@@ -35,3 +36,249 @@
 
 
 
+=======
+/* ===================================================== */
+/* TIMETABLE DESIGN - ADMIN GENERATED TT STYLE */
+/* ===================================================== */
+
+.tt-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-top: 18px;
+  background: #fffaf3;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 14px 36px rgba(20, 43, 73, 0.08);
+}
+
+/* Table header and cells */
+.tt-table th,
+.tt-table td {
+  border-right: 1px solid #efe7dc;
+  border-bottom: 1px solid #efe7dc;
+  padding: 12px;
+  text-align: center;
+  font-size: 13px;
+  color: #101d3b;
+}
+
+/* Header row */
+.tt-table th {
+  background: #173f5f;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1.2;
+  text-align: center;
+  white-space: normal;
+}
+
+.tt-table th:first-child {
+  border-top-left-radius: 18px;
+}
+
+.tt-table th:last-child {
+  border-top-right-radius: 18px;
+}
+
+/* Day column */
+.day,
+.day-label,
+.faculty-matrix-day {
+  background: #e8f0f7 !important;
+  color: #173f5f !important;
+  font-weight: 900 !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+  letter-spacing: 0.5px;
+}
+
+/* Break / Lunch */
+.break,
+.faculty-special-cell {
+  background: #e8f0f7 !important;
+  color: #173f5f !important;
+  font-weight: 900;
+  text-align: center;
+  vertical-align: middle !important;
+}
+
+/* ===================================================== */
+/* FACULTY MATRIX TIMETABLE */
+/* ===================================================== */
+
+.faculty-matrix-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  background: #fffaf3;
+  border-radius: 20px;
+  padding: 18px 20px;
+  box-shadow: 0 12px 30px rgba(20, 43, 73, 0.07);
+  border: 1px solid #f0e2cf;
+}
+
+.faculty-matrix-heading h2 {
+  margin: 4px 0;
+  color: #101d3b;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.faculty-matrix-heading .section-kicker {
+  color: #9a5b1f;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.faculty-matrix-heading .section-copy {
+  color: #4a5875;
+  font-size: 14px;
+  margin: 0;
+}
+
+/* Export button */
+.faculty-export-btn {
+  background: #173f5f;
+  color: #ffffff;
+  border: none;
+  border-radius: 13px;
+  padding: 12px 20px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 10px 22px rgba(23, 63, 95, 0.24);
+  transition: 0.2s ease;
+}
+
+.faculty-export-btn:hover {
+  background: #102f48;
+  transform: translateY(-1px);
+}
+
+.faculty-export-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Outer scroll wrapper */
+.faculty-matrix-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 18px;
+  background: #fffaf3;
+  padding: 0;
+}
+
+/* Main matrix table */
+.faculty-matrix-table {
+  width: 100%;
+  min-width: 1180px;
+  table-layout: fixed;
+  background: #fffaf3;
+}
+
+/* Header sizing */
+.faculty-matrix-table th {
+  padding: 13px 10px;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+/* First column */
+.faculty-matrix-table th:first-child {
+  width: 90px;
+}
+
+.faculty-matrix-day {
+  width: 90px;
+  min-width: 90px !important;
+}
+
+/* Normal timetable cells */
+.faculty-matrix-table td {
+  height: 92px;
+  min-width: 130px;
+  vertical-align: top;
+  background: #fffaf3;
+  padding: 12px;
+}
+
+/* Subject block inside cell */
+.faculty-matrix-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.faculty-matrix-slot + .faculty-matrix-slot {
+  border-top: 1px solid #efe7dc;
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+/* Subject name */
+.faculty-matrix-slot strong {
+  color: #101d3b;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+/* Department / Year / Sem */
+.faculty-matrix-slot span {
+  color: #52617a;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+/* Tea Break / Lunch text */
+.faculty-special-text {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #173f5f;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.2;
+  text-align: center;
+}
+
+/* Empty cells */
+.faculty-empty-slot {
+  color: #999999;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* ===================================================== */
+/* SMALL SCREEN FIX */
+/* ===================================================== */
+
+@media (max-width: 900px) {
+  .faculty-matrix-heading {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .faculty-export-btn {
+    width: 100%;
+  }
+
+  .faculty-matrix-table {
+    min-width: 1120px;
+  }
+}
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)

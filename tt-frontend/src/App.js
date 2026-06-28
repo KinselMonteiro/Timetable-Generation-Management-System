@@ -1,4 +1,8 @@
 import React, { useEffect, useState } from "react";
+<<<<<<< HEAD
+=======
+import Calendar from "./pages/Calendar";
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
 
 import Sidebar from "./components/Sidebar";
 import Home from "./pages/Home";
@@ -15,6 +19,10 @@ function App() {
     const storedUser = localStorage.getItem("tt-user");
     return storedUser ? JSON.parse(storedUser) : null;
   });
+<<<<<<< HEAD
+=======
+
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
   const [page, setPage] = useState("home");
   const [department, setDepartment] = useState("ECS");
   const [year, setYear] = useState("2");
@@ -59,6 +67,7 @@ function App() {
   const role = user.role;
 
   const renderPage = () => {
+<<<<<<< HEAD
     if (role === "teacher") {
       return <TeacherTimetable user={user} activeTab={page.replace("teacher-", "")} />;
     }
@@ -67,6 +76,35 @@ function App() {
     if (role === "admin" && page === "upload") {
       return <Upload department={department} year={year} semester={semester} />;
     }
+=======
+    if (page === "calendar") {
+      return <Calendar />;
+    }
+
+    if (role === "teacher") {
+      return (
+        <TeacherTimetable
+          user={user}
+          activeTab={page.replace("teacher-", "")}
+        />
+      );
+    }
+
+    if (page === "home") {
+      return <Home user={user} setPage={setPage} />;
+    }
+
+    if (role === "admin" && page === "upload") {
+      return (
+        <Upload
+          department={department}
+          year={year}
+          semester={semester}
+        />
+      );
+    }
+
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
     if (role === "admin" && page === "generate") {
       return (
         <Generate
@@ -80,6 +118,10 @@ function App() {
         />
       );
     }
+<<<<<<< HEAD
+=======
+
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
     if (page === "view") {
       return (
         <ViewTimetable
@@ -99,13 +141,29 @@ function App() {
 
   return (
     <div className="app-layout">
+<<<<<<< HEAD
       <Sidebar setPage={setPage} user={user} onLogout={logout} page={page} />
+=======
+      <Sidebar
+        setPage={setPage}
+        user={user}
+        onLogout={logout}
+        page={page}
+      />
+
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
       <div className="main-content">
         <div className="page-shell">
           <div className="topbar">
             <div>
               <p className="eyebrow">{role} dashboard</p>
+<<<<<<< HEAD
               <h1 className="page-title">Academic Timetable Generation and Management System</h1>
+=======
+              <h1 className="page-title">
+                Academic Timetable Generation and Management System
+              </h1>
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
               <p className="dashboard-date">
                 {new Date().toLocaleDateString("en-IN", {
                   weekday: "long",
@@ -120,7 +178,14 @@ function App() {
               <div className="selection-panel">
                 <label className="selection-field">
                   <span>Department</span>
+<<<<<<< HEAD
                   <select value={department} onChange={(e) => setDepartment(e.target.value)}>
+=======
+                  <select
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                  >
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
                     <option value="ECS">ECS</option>
                     <option value="COMP">COMP</option>
                     <option value="MECH">MECH</option>
@@ -130,7 +195,14 @@ function App() {
 
                 <label className="selection-field">
                   <span>Year</span>
+<<<<<<< HEAD
                   <select value={year} onChange={(e) => setYear(e.target.value)}>
+=======
+                  <select
+                    value={year}
+                    onChange={(e) => setYear(e.target.value)}
+                  >
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
                     <option value="1">1</option>
                     <option value="2">2</option>
                     <option value="3">3</option>
@@ -140,7 +212,14 @@ function App() {
 
                 <label className="selection-field">
                   <span>Semester</span>
+<<<<<<< HEAD
                   <select value={semester} onChange={(e) => setSemester(e.target.value)}>
+=======
+                  <select
+                    value={semester}
+                    onChange={(e) => setSemester(e.target.value)}
+                  >
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
                     <option value="1">1</option>
                     <option value="2">2</option>
                     <option value="3">3</option>
@@ -164,4 +243,8 @@ function App() {
   );
 }
 
+<<<<<<< HEAD
 export default App;
+=======
+export default App;
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)

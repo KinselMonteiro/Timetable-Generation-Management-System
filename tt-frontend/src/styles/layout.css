@@ -698,3 +698,108 @@
     border-radius: 24px;
   }
 }
+<<<<<<< HEAD
+=======
+
+/* =============================== */
+/* FACULTY TIMETABLE GRID ONLY */
+/* =============================== */
+
+.faculty-grid-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 18px;
+  background: #fffaf3;
+  border: 1px solid #efe7dc;
+  box-shadow: 0 14px 35px rgba(20, 43, 73, 0.08);
+}
+
+.faculty-grid-table {
+  width: 100%;
+  min-width: 1180px;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  background: #fffaf3;
+}
+
+.faculty-grid-table th {
+  background: #173f5f;
+  color: #ffffff;
+  padding: 13px 10px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.faculty-grid-table th:first-child {
+  width: 90px;
+  border-top-left-radius: 18px;
+}
+
+.faculty-grid-table th:last-child {
+  border-top-right-radius: 18px;
+}
+
+.faculty-grid-table td {
+  background: #fffaf3;
+  border-right: 1px solid #efe7dc;
+  border-bottom: 1px solid #efe7dc;
+  padding: 12px;
+  height: 92px;
+  vertical-align: top;
+  text-align: center;
+  color: #101d3b;
+}
+
+.faculty-grid-day {
+  background: #e8f0f7 !important;
+  color: #173f5f !important;
+  font-weight: 900;
+  text-align: center;
+  vertical-align: middle !important;
+  letter-spacing: 0.5px;
+}
+
+.faculty-grid-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  line-height: 1.25;
+}
+
+.faculty-grid-slot + .faculty-grid-slot {
+  border-top: 1px solid #efe7dc;
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+.faculty-grid-slot strong {
+  color: #101d3b;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.faculty-grid-slot span {
+  color: #52617a;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.faculty-grid-break {
+  background: #e8f0f7 !important;
+  vertical-align: middle !important;
+}
+
+.faculty-grid-break-text {
+  color: #173f5f;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.faculty-grid-empty {
+  color: #999999;
+  font-size: 14px;
+}
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)

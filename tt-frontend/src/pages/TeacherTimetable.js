@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+<<<<<<< HEAD
+=======
+import ExcelJS from "exceljs";
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
 import API from "../services/api";
 
 const DAY_ORDER = ["MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -13,6 +17,94 @@ const REQUEST_TIMES = [
   "15:00-16:00",
   "16:00-17:00"
 ];
+<<<<<<< HEAD
+=======
+const TIMETABLE_TIMES = [
+  "09:00-10:00",
+  "10:00-11:00",
+  "11:00-11:15",
+  "11:15-12:15",
+  "12:15-13:15",
+  "13:15-14:00",
+  "14:00-15:00",
+  "15:00-16:00",
+  "16:00-17:00"
+];
+
+const SPECIAL_TIMES = {
+  "11:00-11:15": "Tea Break",
+  "13:15-14:00": "Lunch"
+};
+
+function normalizeDay(day) {
+  if (!day) return "";
+
+  const value = String(day).trim().toUpperCase();
+
+  const map = {
+    MONDAY: "MON",
+    TUESDAY: "TUE",
+    WEDNESDAY: "WED",
+    THURSDAY: "THU",
+    FRIDAY: "FRI",
+    SATURDAY: "SAT",
+    MON: "MON",
+    TUE: "TUE",
+    WED: "WED",
+    THU: "THU",
+    FRI: "FRI",
+    SAT: "SAT"
+  };
+
+  return map[value] || value;
+}
+
+function normalizeTime(time) {
+  if (!time) return "";
+
+  return String(time)
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/[–—]/g, "-")
+    .replace(/(\d{2}:\d{2}):\d{2}/g, "$1");
+}
+
+function mapTimeToGrid(time) {
+  const cleanTime = normalizeTime(time);
+
+  const oldTimeMap = {
+    "11:00-12:00": "11:15-12:15",
+    "13:00-14:00": "14:00-15:00"
+  };
+
+  return oldTimeMap[cleanTime] || cleanTime;
+}
+
+function buildTeacherMatrix(slots) {
+  const matrix = {};
+
+  DAY_ORDER.forEach((day) => {
+    matrix[day] = {};
+
+    TIMETABLE_TIMES.forEach((time) => {
+      matrix[day][time] = [];
+    });
+  });
+
+  slots.forEach((slot) => {
+    const day = normalizeDay(slot.day);
+    const time = mapTimeToGrid(slot.time);
+
+    if (!matrix[day]) return;
+    if (!matrix[day][time]) return;
+
+    matrix[day][time].push(slot);
+  });
+
+  return matrix;
+}
+
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
 const DEPARTMENTS = ["ECS", "COMP", "MECH", "CIVIL", "SCIENCE_HUMANITIES"];
 const DATE_DAY_NAMES = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
@@ -411,6 +503,7 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
     }
   };
 
+<<<<<<< HEAD
   useEffect(() => {
     if (activeTab === "attendance") {
       loadAttendanceTimetable();
@@ -432,6 +525,176 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
   const selectedAttendanceDay = dayFromDate(attendanceForm.attendanceDate);
   const attendanceDepartments = user?.department ? [user.department] : DEPARTMENTS;
 
+=======
+    const teacherFacultyName = user?.facultyName || user?.name || "Faculty";
+
+  const teacherOnlySlots = slots.filter((slot) => {
+    const loggedFaculty = String(teacherFacultyName).toLowerCase().trim();
+    const slotFaculty = String(slot.faculty || "").toLowerCase();
+
+    if (!loggedFaculty || loggedFaculty === "faculty") return true;
+    if (!slotFaculty) return true;
+
+    return slotFaculty.includes(loggedFaculty);
+  });
+
+  const sortedSlots = [...teacherOnlySlots].sort((left, right) => {
+    return DAY_ORDER.indexOf(normalizeDay(left.day)) - DAY_ORDER.indexOf(normalizeDay(right.day))
+      || mapTimeToGrid(left.time).localeCompare(mapTimeToGrid(right.time))
+      || String(left.department).localeCompare(String(right.department));
+  });
+
+  const timetableMatrix = buildTeacherMatrix(sortedSlots);
+
+  const selectedAttendanceDay = dayFromDate(attendanceForm.attendanceDate);
+  const attendanceDepartments = user?.department ? [user.department] : DEPARTMENTS;
+
+  const exportTeacherTimetable = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Faculty Timetable");
+
+    sheet.mergeCells(1, 1, 1, TIMETABLE_TIMES.length + 1);
+    sheet.getCell(1, 1).value = "DON BOSCO COLLEGE OF ENGINEERING";
+    sheet.getCell(1, 1).font = { bold: true, size: 15 };
+    sheet.getCell(1, 1).alignment = {
+      horizontal: "center",
+      vertical: "middle"
+    };
+
+    sheet.mergeCells(2, 1, 2, TIMETABLE_TIMES.length + 1);
+    sheet.getCell(2, 1).value = "FACULTY WEEKLY TIMETABLE";
+    sheet.getCell(2, 1).font = { bold: true, size: 13 };
+    sheet.getCell(2, 1).alignment = {
+      horizontal: "center",
+      vertical: "middle"
+    };
+
+    sheet.mergeCells(3, 1, 3, TIMETABLE_TIMES.length + 1);
+    sheet.getCell(3, 1).value = `Faculty: ${teacherFacultyName}`;
+    sheet.getCell(3, 1).font = { bold: true, size: 12 };
+    sheet.getCell(3, 1).alignment = {
+      horizontal: "center",
+      vertical: "middle"
+    };
+
+    sheet.addRow([]);
+
+    const headerRow = sheet.addRow(["Day / Time", ...TIMETABLE_TIMES]);
+
+    headerRow.eachCell((cell) => {
+      cell.font = {
+        name: "Times New Roman",
+        bold: true,
+        color: { argb: "FFFFFFFF" }
+      };
+
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF173F5F" }
+      };
+
+      cell.alignment = {
+        horizontal: "center",
+        vertical: "middle",
+        wrapText: true
+      };
+
+      cell.border = {
+        top: { style: "thin" },
+        left: { style: "thin" },
+        bottom: { style: "thin" },
+        right: { style: "thin" }
+      };
+    });
+
+    DAY_ORDER.forEach((day) => {
+      const rowData = [day];
+
+      TIMETABLE_TIMES.forEach((time) => {
+        const entries = timetableMatrix[day]?.[time] || [];
+
+        if (entries.length > 0) {
+          const cellText = entries
+            .map((entry) => {
+              return `${entry.subject || "-"}\n${entry.department || "-"} | Year ${entry.year || "-"} | Sem ${entry.semester || "-"}`;
+            })
+            .join("\n\n");
+
+          rowData.push(cellText);
+        } else if (SPECIAL_TIMES[time]) {
+          rowData.push(SPECIAL_TIMES[time]);
+        } else {
+          rowData.push("-");
+        }
+      });
+
+      sheet.addRow(rowData);
+    });
+
+    sheet.columns.forEach((column, index) => {
+      column.width = index === 0 ? 14 : 24;
+    });
+
+    sheet.eachRow((row, rowNumber) => {
+      row.height = rowNumber <= 5 ? 25 : 70;
+
+      row.eachCell((cell) => {
+        cell.alignment = {
+          horizontal: "center",
+          vertical: "middle",
+          wrapText: true
+        };
+
+        cell.border = {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" }
+        };
+
+        cell.font = {
+          name: "Times New Roman",
+          size: 11,
+          bold: rowNumber <= 5
+        };
+      });
+    });
+
+    for (let rowNumber = 6; rowNumber <= 11; rowNumber++) {
+      sheet.getCell(rowNumber, 1).font = {
+        name: "Times New Roman",
+        size: 11,
+        bold: true
+      };
+
+      sheet.getCell(rowNumber, 1).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFE8F0F7" }
+      };
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `${teacherFacultyName.replace(/\s+/g, "_")}_Faculty_Timetable.xlsx`;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.URL.revokeObjectURL(url);
+  };
+
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
   const requestMetaFields = (
     <>
       <label className="selection-field">
@@ -444,6 +707,10 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
           <option value="SCIENCE_HUMANITIES">Science & Humanities</option>
         </select>
       </label>
+<<<<<<< HEAD
+=======
+
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
       <label className="selection-field">
         <span>Year</span>
         <select value={requestForm.year} onChange={(event) => updateRequestForm("year", event.target.value)}>
@@ -453,6 +720,10 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
           <option value="4">4</option>
         </select>
       </label>
+<<<<<<< HEAD
+=======
+
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
       <label className="selection-field">
         <span>Semester</span>
         <select value={requestForm.semester} onChange={(event) => updateRequestForm("semester", event.target.value)}>
@@ -466,6 +737,7 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
           <option value="8">8</option>
         </select>
       </label>
+<<<<<<< HEAD
       <label className="selection-field">
         <span>Day</span>
         <select value={requestForm.day} onChange={(event) => updateRequestForm("day", event.target.value)}>
@@ -476,12 +748,31 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
         <span>Time</span>
         <select value={requestForm.time} onChange={(event) => updateRequestForm("time", event.target.value)}>
           {REQUEST_TIMES.map((time) => <option key={time} value={time}>{time}</option>)}
+=======
+
+      <label className="selection-field">
+        <span>Day</span>
+        <select value={requestForm.day} onChange={(event) => updateRequestForm("day", event.target.value)}>
+          {DAY_ORDER.map((day) => (
+            <option key={day} value={day}>{day}</option>
+          ))}
+        </select>
+      </label>
+
+      <label className="selection-field">
+        <span>Time</span>
+        <select value={requestForm.time} onChange={(event) => updateRequestForm("time", event.target.value)}>
+          {REQUEST_TIMES.map((time) => (
+            <option key={time} value={time}>{time}</option>
+          ))}
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
         </select>
       </label>
     </>
   );
 
   const renderTimetable = () => (
+<<<<<<< HEAD
     <>
       {message && <p className="status-message">{message}</p>}
       <div className="timetable-wrap">
@@ -515,6 +806,83 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
       </div>
     </>
   );
+=======
+  <>
+    {message && <p className="status-message">{message}</p>}
+
+    <div className="section-heading section-heading-row">
+      <div>
+        <p className="section-kicker">Weekly Grid</p>
+        <h2>My Timetable</h2>
+        <p className="section-copy">
+          Viewing timetable for {teacherFacultyName}
+        </p>
+      </div>
+
+      <button
+        className="secondary-button"
+        onClick={exportTeacherTimetable}
+        disabled={!sortedSlots.length}
+      >
+        Export Excel
+      </button>
+    </div>
+
+    <div className="faculty-grid-wrapper">
+      <table className="faculty-grid-table">
+        <thead>
+          <tr>
+            <th>Day / Time</th>
+            {TIMETABLE_TIMES.map((time) => (
+              <th key={time}>{time}</th>
+            ))}
+          </tr>
+        </thead>
+
+        <tbody>
+          {DAY_ORDER.map((day) => (
+            <tr key={day}>
+              <td className="faculty-grid-day">{day}</td>
+
+              {TIMETABLE_TIMES.map((time) => {
+                const entries = timetableMatrix[day]?.[time] || [];
+                const specialText = SPECIAL_TIMES[time];
+
+                return (
+                  <td
+                    key={`${day}-${time}`}
+                    className={specialText ? "faculty-grid-break" : ""}
+                  >
+                    {entries.length > 0 ? (
+                      entries.map((slot, index) => (
+                        <div
+                          className="faculty-grid-slot"
+                          key={`${slot.department}-${slot.year}-${slot.semester}-${slot.subject}-${index}`}
+                        >
+                          <strong>{slot.subject || "-"}</strong>
+                          <span>
+                            {slot.department || "-"} | Year {slot.year || "-"} | Sem {slot.semester || "-"}
+                          </span>
+                        </div>
+                      ))
+                    ) : specialText ? (
+                      <div className="faculty-grid-break-text">
+                        {specialText}
+                      </div>
+                    ) : (
+                      <span className="faculty-grid-empty">-</span>
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </>
+);
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
 
   const renderAvailability = () => (
     <>

@@ -1,0 +1,158 @@
+timetable-project-main
+├── .gitignore
+├── Untitled.sql
+├── project-tree.txt
+├── timetable.sql
+├── tree.js
+├── tt backend
+│   ├── .env
+│   ├── config
+│   │   ├── db.js
+│   │   └── facultyDirectory.js
+│   ├── controllers
+│   │   ├── academicController.js
+│   │   ├── authController.js
+│   │   ├── calendarController.js
+│   │   ├── courseController.js
+│   │   ├── exportController.js
+│   │   └── facultyController.js
+│   ├── middlewares
+│   │   └── upload.js
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── routes
+│   │   ├── academicRoutes.js
+│   │   ├── authRoutes.js
+│   │   ├── calendarRoutes.js
+│   │   ├── courseRoutes.js
+│   │   ├── exportRoutes.js
+│   │   ├── facultyRoutes.js
+│   │   └── uploadRoutes.js
+│   ├── server.js
+│   ├── services
+│   │   ├── constraints.js
+│   │   ├── facultyHelper.js
+│   │   ├── roomAllocator.js
+│   │   └── slotEngine.js
+│   └── uploads
+│       ├── 1766217903508-loadsheet.xlsx
+│       └── 1766218246935-loadsheet.xlsx
+└── tt-frontend
+    ├── .gitignore
+    ├── README.md
+    ├── build-check
+    │   ├── asset-manifest.json
+    │   ├── favicon.ico
+    │   ├── index.html
+    │   ├── logo192.png
+    │   ├── logo512.png
+    │   ├── manifest.json
+    │   ├── robots.txt
+    │   └── static
+    │       ├── css
+    │       │   ├── main.f77a4425.css
+    │       │   └── main.f77a4425.css.map
+    │       └── js
+    │           ├── main.3fb2a86a.js
+    │           ├── main.3fb2a86a.js.LICENSE.txt
+    │           └── main.3fb2a86a.js.map
+    ├── build-check-dept
+    │   ├── asset-manifest.json
+    │   ├── favicon.ico
+    │   ├── index.html
+    │   ├── logo192.png
+    │   ├── logo512.png
+    │   ├── manifest.json
+    │   ├── robots.txt
+    │   └── static
+    │       ├── css
+    │       │   ├── main.f77a4425.css
+    │       │   └── main.f77a4425.css.map
+    │       └── js
+    │           ├── main.58d39e54.js
+    │           ├── main.58d39e54.js.LICENSE.txt
+    │           └── main.58d39e54.js.map
+    ├── build-check-empty-state
+    │   ├── asset-manifest.json
+    │   ├── favicon.ico
+    │   ├── index.html
+    │   ├── logo192.png
+    │   ├── logo512.png
+    │   ├── manifest.json
+    │   ├── robots.txt
+    │   └── static
+    │       ├── css
+    │       │   ├── main.f77a4425.css
+    │       │   └── main.f77a4425.css.map
+    │       └── js
+    │           ├── main.fa5287a8.js
+    │           ├── main.fa5287a8.js.LICENSE.txt
+    │           └── main.fa5287a8.js.map
+    ├── build-check-fourth-year
+    │   ├── asset-manifest.json
+    │   ├── favicon.ico
+    │   ├── index.html
+    │   ├── logo192.png
+    │   ├── logo512.png
+    │   ├── manifest.json
+    │   ├── robots.txt
+    │   └── static
+    │       ├── css
+    │       │   ├── main.f77a4425.css
+    │       │   └── main.f77a4425.css.map
+    │       └── js
+    │           ├── main.4410e878.js
+    │           ├── main.4410e878.js.LICENSE.txt
+    │           └── main.4410e878.js.map
+    ├── build-check-year4
+    │   ├── asset-manifest.json
+    │   ├── favicon.ico
+    │   ├── index.html
+    │   ├── logo192.png
+    │   ├── logo512.png
+    │   ├── manifest.json
+    │   ├── robots.txt
+    │   └── static
+    │       ├── css
+    │       │   ├── main.f77a4425.css
+    │       │   └── main.f77a4425.css.map
+    │       └── js
+    │           ├── main.4410e878.js
+    │           ├── main.4410e878.js.LICENSE.txt
+    │           └── main.4410e878.js.map
+    ├── package-lock.json
+    ├── package.json
+    ├── public
+    │   ├── favicon.ico
+    │   ├── index.html
+    │   ├── logo192.png
+    │   ├── logo512.png
+    │   ├── manifest.json
+    │   ├── robots.txt
+    │   └── service-worker.js
+    └── src
+        ├── App.css
+        ├── App.js
+        ├── Timetable.js
+        ├── components
+        │   ├── Header.js
+        │   ├── Sidebar.js
+        │   ├── TimetableCell.js
+        │   ├── TimetableTable.css
+        │   └── TimetableTable.js
+        ├── index.css
+        ├── index.js
+        ├── pages
+        │   ├── Calendar.js
+        │   ├── Generate.js
+        │   ├── Home.js
+        │   ├── Login.js
+        │   ├── TeacherTimetable.js
+        │   ├── Upload.js
+        │   └── ViewTimetable.js
+        ├── services
+        │   └── api.js
+        └── styles
+            ├── home.css
+            ├── layout.css
+            └── theme.css

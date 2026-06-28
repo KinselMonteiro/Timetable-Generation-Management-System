@@ -2,6 +2,7 @@ import React from "react";
 
 function Sidebar({ setPage, user, onLogout, page }) {
   const role = user?.role || "student";
+<<<<<<< HEAD
   const items = role === "admin"
     ? [
         { id: "home", label: "Dashboard" },
@@ -19,6 +20,32 @@ function Sidebar({ setPage, user, onLogout, page }) {
         { id: "teacher-mine", label: "Requests Sent" }
       ]
     : [{ id: "view", label: "View Timetable" }];
+=======
+
+  const items =
+    role === "admin"
+      ? [
+          { id: "home", label: "Dashboard" },
+          { id: "upload", label: "Upload" },
+          { id: "generate", label: "Generate" },
+          { id: "view", label: "View Timetable" },
+          { id: "calendar", label: "Calendar" }
+        ]
+      : role === "teacher"
+      ? [
+          { id: "teacher-timetable", label: "My Timetable" },
+          { id: "teacher-attendance", label: "Attendance" },
+          { id: "teacher-availability", label: "Free Faculty" },
+          { id: "teacher-request", label: "Send Request" },
+          { id: "teacher-notifications", label: "Requests Received" },
+          { id: "teacher-mine", label: "Requests Sent" },
+          { id: "calendar", label: "Calendar" }
+        ]
+      : [
+          { id: "view", label: "View Timetable" },
+          { id: "calendar", label: "Calendar" }
+        ];
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
 
   return (
     <div className="sidebar">
@@ -54,4 +81,8 @@ function Sidebar({ setPage, user, onLogout, page }) {
   );
 }
 
+<<<<<<< HEAD
 export default Sidebar;
+=======
+export default Sidebar;
+>>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
