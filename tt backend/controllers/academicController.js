@@ -190,6 +190,15 @@ function buildClashScopeWhere(department, semester) {
     };
   }
 
+  // Both Computer sections share faculty, including timetables saved under the
+  // original COMP department name.
+  if (["COMP", "COMP1", "COMP2"].includes(department)) {
+    return {
+      where: "(department IN ('COMP', 'COMP1', 'COMP2') OR semester IN (1, 2))",
+      params: []
+    };
+  }
+
   return {
     where: "(department = ? OR semester IN (1, 2))",
     params: [department]
@@ -746,8 +755,12 @@ const getFacultyAvailabilityController = async (req, res) => {
     const facultyParams = [];
 
     if (department !== "SCIENCE_HUMANITIES" && numericSemester > 2) {
-      facultySqlParts.push("AND department = ?");
-      facultyParams.push(department);
+      if (["COMP", "COMP1", "COMP2"].includes(department)) {
+        facultySqlParts.push("AND department IN ('COMP', 'COMP1', 'COMP2')");
+      } else {
+        facultySqlParts.push("AND department = ?");
+        facultyParams.push(department);
+      }
     }
 
     if (numericSemester > 2) {

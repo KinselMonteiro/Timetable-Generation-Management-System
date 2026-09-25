@@ -198,7 +198,9 @@ function App() {
                     onChange={(e) => setDepartment(e.target.value)}
                   >
                     <option value="ECS">ECS</option>
-                    <option value="COMP">COMP</option>
+                    <option value="COMP1">COMP 1</option>
+                    <option value="COMP2">COMP 2</option>
+                    <option value="COMP">COMP (existing timetables)</option>
                     <option value="MECH">MECH</option>
                     <option value="CIVIL">CIVIL</option>
                   </select>
