@@ -10,6 +10,7 @@ const {
   generateTimetableController,
   getTimetableController,
   getSavedTimetablesController,
+  getAcademicYearsController,
   getTeacherTimetableController,
   swapSlotsController,
   getFacultyAvailabilityController,
@@ -35,6 +36,7 @@ router.post("/save-timetable", saveTimetableController);
 router.post("/generate-timetable", generateTimetableController);
 router.get("/timetable", getTimetableController);
 router.get("/saved-timetables", getSavedTimetablesController);
+router.get("/academic-years", getAcademicYearsController);
 router.get("/teacher-timetable", getTeacherTimetableController);
 router.post("/swap-slots", swapSlotsController);
 router.get("/faculty-availability", getFacultyAvailabilityController);

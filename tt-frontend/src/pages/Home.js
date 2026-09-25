@@ -2,13 +2,13 @@ import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import "../styles/home.css";
 
-function Home({ user, setPage }) {
+function Home({ user, setPage, academicYear }) {
   const [saved, setSaved] = useState([]);
   const [credentials, setCredentials] = useState([]);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    API.get("/saved-timetables")
+    API.get("/saved-timetables", { params: { academicYear } })
       .then((res) => setSaved(res.data.timetables || []))
       .catch(() => setMessage("Could not load saved timetable summary."));
 
@@ -17,7 +17,7 @@ function Home({ user, setPage }) {
         .then((res) => setCredentials(res.data.credentials || []))
         .catch(() => {});
     }
-  }, [user]);
+  }, [user, academicYear]);
 
   return (
     <div className="home-container">
@@ -32,7 +32,7 @@ function Home({ user, setPage }) {
         <div className="overview-stats">
           <div>
             <strong>{saved.length}</strong>
-            <span>Saved timetables</span>
+            <span>Saved timetables ({academicYear})</span>
           </div>
           {user?.role === "admin" && (
             <div>
@@ -66,17 +66,17 @@ function Home({ user, setPage }) {
       <div className="page-section">
         <div className="section-heading">
           <p className="section-kicker">Saved Timetables</p>
-          <h2>Saved Schedule Summary</h2>
+          <h2>Saved Schedule Summary · {academicYear}</h2>
         </div>
 
         <div className="summary-list">
           {saved.length ? saved.map((item) => (
-            <div className="summary-row" key={`${item.department}-${item.year}-${item.semester}`}>
+            <div className="summary-row" key={`${item.academicYear}-${item.department}-${item.year}-${item.semester}`}>
               <strong>{item.department}</strong>
               <span>Year {item.year}, Semester {item.semester}</span>
               <span>{item.slotCount} saved slots</span>
             </div>
-          )) : <p className="status-message">No saved timetables yet.</p>}
+          )) : <p className="status-message">No saved timetables for {academicYear} yet.</p>}
         </div>
       </div>
 

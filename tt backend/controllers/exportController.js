@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const ExcelJS = require("exceljs");
+const { normalizeAcademicYear } = require("../services/academicYear");
 
 const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const REGULAR_TIMES = [
@@ -53,13 +54,6 @@ function cellText(slot) {
   if (slot.subject === "LUNCH") return "LUNCH BREAK";
 
   return slot.faculty ? `${slot.subject}\n${slot.faculty}` : slot.subject;
-}
-
-function getAcademicYearLabel() {
-  const today = new Date();
-  const calendarYear = today.getFullYear();
-  const startYear = today.getMonth() >= 5 ? calendarYear : calendarYear - 1;
-  return `${startYear}-${startYear + 1}`;
 }
 
 function displayDepartment(department) {
@@ -126,6 +120,7 @@ exports.exportTimetableController = async (req, res) => {
     const department = normalizeDepartment(req.query.department);
     const year = Number(req.query.year);
     const semester = Number(req.query.semester);
+    const academicYear = normalizeAcademicYear(req.query.academicYear);
 
     if (!year || !semester) {
       return res.status(400).json({ message: "department, year and semester are required" });
@@ -134,9 +129,9 @@ exports.exportTimetableController = async (req, res) => {
     const rows = await query(
       `SELECT day, time, subject, faculty
        FROM timetable_slots
-       WHERE department = ? AND year = ? AND semester = ?
+       WHERE academic_year = ? AND department = ? AND year = ? AND semester = ?
        ORDER BY FIELD(day,'MON','TUE','WED','THU','FRI','SAT'), time`,
-      [department, year, semester]
+      [academicYear, department, year, semester]
     );
 
     if (!rows.length) {
@@ -180,7 +175,7 @@ exports.exportTimetableController = async (req, res) => {
     mergeAcross(2);
     mergeAcross(3);
     cell(1, 1).value = "DON BOSCO COLLEGE OF ENGINEERING, FATORDA, MARGAO, GOA";
-    cell(2, 1).value = `TIME-TABLE FOR ACADEMIC YEAR ${getAcademicYearLabel()}`;
+    cell(2, 1).value = `TIME-TABLE FOR ACADEMIC YEAR ${academicYear}`;
     cell(3, 1).value = `${displayDepartment(department)} - Year ${year}, Semester ${semester}`;
 
     [1, 2, 3].forEach((rowNumber) => {
@@ -302,7 +297,7 @@ exports.exportTimetableController = async (req, res) => {
 
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="${department}_Y${year}_S${semester}_Timetable.xlsx"`
+      `attachment; filename="${department}_${academicYear}_Y${year}_S${semester}_Timetable.xlsx"`
     );
     res.setHeader(
       "Content-Type",

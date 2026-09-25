@@ -1,10 +1,7 @@
 import React from "react";
 
 const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT"];
-<<<<<<< HEAD
-=======
 
->>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
 const REGULAR_TIMES = [
   "09:00-10:00",
   "10:00-11:00",
@@ -16,10 +13,7 @@ const REGULAR_TIMES = [
   "15:00-16:00",
   "16:00-17:00"
 ];
-<<<<<<< HEAD
-=======
 
->>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
 const FOURTH_YEAR_TIMES = [
   "09:00-10:00",
   "10:00-11:00",
@@ -31,9 +25,6 @@ const FOURTH_YEAR_TIMES = [
   "16:00-17:00"
 ];
 
-<<<<<<< HEAD
-function TimetableTable({ slots, year, semester, swapMode = false, selectedSlots = [], onCellSelect }) {
-=======
 function TimetableTable({
   slots,
   year,
@@ -43,16 +34,11 @@ function TimetableTable({
   onCellSelect,
   isFacultyView = false
 }) {
->>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
   const data = Array.isArray(slots)
     ? slots
     : Array.isArray(slots?.timetable)
     ? slots.timetable
     : [];
-<<<<<<< HEAD
-  const usesSingleLunchBreak = Number(semester) <= 2 || Number(year) === 4;
-  const times = usesSingleLunchBreak ? FOURTH_YEAR_TIMES : REGULAR_TIMES;
-=======
 
   const usesSingleLunchBreak =
     Number(semester) <= 2 || Number(year) === 4;
@@ -60,7 +46,6 @@ function TimetableTable({
   const times = usesSingleLunchBreak
     ? FOURTH_YEAR_TIMES
     : REGULAR_TIMES;
->>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
 
   const getCell = (day, time) => {
     return data.find(
@@ -69,13 +54,9 @@ function TimetableTable({
   };
 
   const isSelected = (day, time) => {
-<<<<<<< HEAD
-    return selectedSlots.some((slot) => slot.day === day && slot.time === time);
-=======
     return selectedSlots.some(
       (slot) => slot.day === day && slot.time === time
     );
->>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
   };
 
   return (
@@ -84,10 +65,7 @@ function TimetableTable({
         <thead>
           <tr>
             <th>Day / Time</th>
-<<<<<<< HEAD
-=======
 
->>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
             {times.map((t) => (
               <th key={t}>{t}</th>
             ))}
@@ -111,13 +89,9 @@ function TimetableTable({
                 }
 
                 if (!cell || !cell.subject) {
-<<<<<<< HEAD
-                  return <td key={time} className="slot slot-empty"></td>;
-=======
                   return (
                     <td key={time} className="slot slot-empty"></td>
                   );
->>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
                 }
 
                 if (cell.type === "BREAK") {
@@ -139,13 +113,6 @@ function TimetableTable({
                 return (
                   <td
                     key={time}
-<<<<<<< HEAD
-                    className={`slot slot-class ${isSelected(day, time) ? "slot-selected" : ""} ${swapMode ? "slot-clickable" : ""}`}
-                    onClick={() => swapMode && onCellSelect?.({ day, time, subject: cell.subject, faculty: cell.faculty })}
-                  >
-                    <div className="slot-subject">{cell.subject}</div>
-                    <div className="slot-faculty">{cell.faculty || "Faculty TBA"}</div>
-=======
                     className={`slot slot-class ${
                       isSelected(day, time) ? "slot-selected" : ""
                     } ${swapMode ? "slot-clickable" : ""}`}
@@ -188,7 +155,6 @@ function TimetableTable({
                         {cell.faculty || "Faculty TBA"}
                       </div>
                     )}
->>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
                   </td>
                 );
               })}
@@ -200,8 +166,4 @@ function TimetableTable({
   );
 }
 
-<<<<<<< HEAD
 export default TimetableTable;
-=======
-export default TimetableTable;
->>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)

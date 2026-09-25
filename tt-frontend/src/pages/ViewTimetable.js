@@ -3,6 +3,7 @@ import API from "../services/api";
 import TimetableTable from "../components/TimetableTable";
 
 export default function ViewTimetable({
+  academicYear,
   department,
   year,
   semester,
@@ -22,6 +23,7 @@ export default function ViewTimetable({
 
   const exportTimetable = () => {
     const params = new URLSearchParams({
+      academicYear,
       department,
       year: Number(year),
       semester: Number(semester)
@@ -32,7 +34,7 @@ export default function ViewTimetable({
 
   useEffect(() => {
     API.get("/timetable", {
-      params: { department, year: Number(year), semester: Number(semester) }
+      params: { academicYear, department, year: Number(year), semester: Number(semester) }
     })
       .then((res) => {
         const nextSlots = res.data.slots || [];
@@ -40,19 +42,19 @@ export default function ViewTimetable({
         setMessage(
           nextSlots.length
             ? ""
-            : "No timetable rows found for this department/year/semester yet. Upload and generate first."
+            : `No timetable saved for ${academicYear} for this department/year/semester yet.`
         );
       })
       .catch((err) => {
         setSlots([]);
         setMessage(err.response?.data?.message || "Failed to load timetable");
       });
-  }, [department, refreshToken, semester, year]);
+  }, [academicYear, department, refreshToken, semester, year]);
 
   useEffect(() => {
     setSwapMode(false);
     setSelectedSlots([]);
-  }, [department, semester, year]);
+  }, [academicYear, department, semester, year]);
 
   const selectSwapSlot = async (slot) => {
     const exists = selectedSlots.some((selected) => selected.day === slot.day && selected.time === slot.time);
@@ -69,6 +71,7 @@ export default function ViewTimetable({
 
     try {
       await API.post("/swap-slots", {
+        academicYear,
         department,
         year: Number(year),
         semester: Number(semester),
@@ -91,7 +94,7 @@ export default function ViewTimetable({
         <div>
           <p className="section-kicker">Weekly Grid</p>
           <h2>View Timetable</h2>
-          <p className="section-copy">Viewing {department}, Year {year}, Semester {semester}</p>
+          <p className="section-copy">Viewing {academicYear} · {department}, Year {year}, Semester {semester}</p>
         </div>
         <div className="action-panel">
           {canEdit && (

@@ -1,15 +1,14 @@
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
+
 const mysql = require("mysql2");
 
 const db = mysql.createPool({
-  host: "localhost",
-  user: "root",
-<<<<<<< HEAD
-  password: "12345",
-  database: "timetable_db"
-=======
-  password: "12345678",
-  database: "timetable"
->>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "12345678",
+  database: process.env.DB_NAME || "timetable",
+  port: Number(process.env.DB_PORT) || 3306
 });
 
 console.log("✅ MySQL Pool Ready");

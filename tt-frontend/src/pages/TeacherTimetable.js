@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-<<<<<<< HEAD
-=======
 import ExcelJS from "exceljs";
->>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
 import API from "../services/api";
 
 const DAY_ORDER = ["MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -17,8 +14,6 @@ const REQUEST_TIMES = [
   "15:00-16:00",
   "16:00-17:00"
 ];
-<<<<<<< HEAD
-=======
 const TIMETABLE_TIMES = [
   "09:00-10:00",
   "10:00-11:00",
@@ -104,7 +99,6 @@ function buildTeacherMatrix(slots) {
   return matrix;
 }
 
->>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
 const DEPARTMENTS = ["ECS", "COMP", "MECH", "CIVIL", "SCIENCE_HUMANITIES"];
 const DATE_DAY_NAMES = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
@@ -134,7 +128,7 @@ function dayFromDate(value) {
   return DATE_DAY_NAMES[date.getDay()] || "";
 }
 
-function TeacherTimetable({ user, activeTab = "timetable" }) {
+function TeacherTimetable({ user, academicYear, activeTab = "timetable" }) {
   const [slots, setSlots] = useState([]);
   const [message, setMessage] = useState("");
   const [requestMessage, setRequestMessage] = useState("");
@@ -187,18 +181,18 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
     }
 
     API.get("/teacher-timetable", {
-      params: { facultyName: user.facultyName }
+      params: { facultyName: user.facultyName, academicYear }
     })
       .then((res) => {
         const nextSlots = res.data.slots || [];
         setSlots(nextSlots);
-        setMessage(nextSlots.length ? "" : "No saved timetable slots found for this teacher yet.");
+        setMessage(nextSlots.length ? "" : `No saved timetable slots found for this teacher in ${academicYear} yet.`);
       })
       .catch((err) => {
         setSlots([]);
         setMessage(err.response?.data?.message || "Could not load teacher timetable.");
       });
-  }, [user]);
+  }, [user, academicYear]);
 
   const showDesktopNotification = useCallback((request) => {
     if (typeof window === "undefined" || !("Notification" in window)) return;
@@ -295,6 +289,7 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
     try {
       const res = await API.get("/faculty-availability", {
         params: {
+          academicYear,
           department: requestForm.department,
           year: Number(requestForm.year),
           semester: Number(requestForm.semester),
@@ -352,6 +347,7 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
     try {
       const res = await API.get("/timetable", {
         params: {
+          academicYear,
           department: attendanceForm.department,
           year: Number(attendanceForm.year),
           semester: Number(attendanceForm.semester)
@@ -503,7 +499,6 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
     }
   };
 
-<<<<<<< HEAD
   useEffect(() => {
     if (activeTab === "attendance") {
       loadAttendanceTimetable();
@@ -517,16 +512,7 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
     attendanceForm.attendanceDate
   ]);
 
-  const sortedSlots = [...slots].sort((left, right) => {
-    return DAY_ORDER.indexOf(left.day) - DAY_ORDER.indexOf(right.day)
-      || left.time.localeCompare(right.time)
-      || String(left.department).localeCompare(String(right.department));
-  });
-  const selectedAttendanceDay = dayFromDate(attendanceForm.attendanceDate);
-  const attendanceDepartments = user?.department ? [user.department] : DEPARTMENTS;
-
-=======
-    const teacherFacultyName = user?.facultyName || user?.name || "Faculty";
+  const teacherFacultyName = user?.facultyName || user?.name || "Faculty";
 
   const teacherOnlySlots = slots.filter((slot) => {
     const loggedFaculty = String(teacherFacultyName).toLowerCase().trim();
@@ -562,7 +548,7 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
     };
 
     sheet.mergeCells(2, 1, 2, TIMETABLE_TIMES.length + 1);
-    sheet.getCell(2, 1).value = "FACULTY WEEKLY TIMETABLE";
+    sheet.getCell(2, 1).value = `FACULTY WEEKLY TIMETABLE - ACADEMIC YEAR ${academicYear}`;
     sheet.getCell(2, 1).font = { bold: true, size: 13 };
     sheet.getCell(2, 1).alignment = {
       horizontal: "center",
@@ -685,7 +671,7 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = `${teacherFacultyName.replace(/\s+/g, "_")}_Faculty_Timetable.xlsx`;
+    link.download = `${teacherFacultyName.replace(/\s+/g, "_")}_${academicYear}_Faculty_Timetable.xlsx`;
 
     document.body.appendChild(link);
     link.click();
@@ -694,7 +680,6 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
     window.URL.revokeObjectURL(url);
   };
 
->>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
   const requestMetaFields = (
     <>
       <label className="selection-field">
@@ -707,10 +692,7 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
           <option value="SCIENCE_HUMANITIES">Science & Humanities</option>
         </select>
       </label>
-<<<<<<< HEAD
-=======
 
->>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
       <label className="selection-field">
         <span>Year</span>
         <select value={requestForm.year} onChange={(event) => updateRequestForm("year", event.target.value)}>
@@ -720,10 +702,7 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
           <option value="4">4</option>
         </select>
       </label>
-<<<<<<< HEAD
-=======
 
->>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
       <label className="selection-field">
         <span>Semester</span>
         <select value={requestForm.semester} onChange={(event) => updateRequestForm("semester", event.target.value)}>
@@ -737,18 +716,6 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
           <option value="8">8</option>
         </select>
       </label>
-<<<<<<< HEAD
-      <label className="selection-field">
-        <span>Day</span>
-        <select value={requestForm.day} onChange={(event) => updateRequestForm("day", event.target.value)}>
-          {DAY_ORDER.map((day) => <option key={day} value={day}>{day}</option>)}
-        </select>
-      </label>
-      <label className="selection-field">
-        <span>Time</span>
-        <select value={requestForm.time} onChange={(event) => updateRequestForm("time", event.target.value)}>
-          {REQUEST_TIMES.map((time) => <option key={time} value={time}>{time}</option>)}
-=======
 
       <label className="selection-field">
         <span>Day</span>
@@ -765,48 +732,12 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
           {REQUEST_TIMES.map((time) => (
             <option key={time} value={time}>{time}</option>
           ))}
->>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
         </select>
       </label>
     </>
   );
 
   const renderTimetable = () => (
-<<<<<<< HEAD
-    <>
-      {message && <p className="status-message">{message}</p>}
-      <div className="timetable-wrap">
-        <table className="timetable-table compact-table">
-          <thead>
-            <tr>
-              <th>Day</th>
-              <th>Time</th>
-              <th>Department</th>
-              <th>Year</th>
-              <th>Semester</th>
-              <th>Subject</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedSlots.map((slot, index) => (
-              <tr key={`${slot.department}-${slot.year}-${slot.semester}-${slot.day}-${slot.time}-${index}`}>
-                <td className="day-label">{slot.day}</td>
-                <td>{slot.time}</td>
-                <td>{slot.department}</td>
-                <td>{slot.year}</td>
-                <td>{slot.semester}</td>
-                <td>
-                  <div className="slot-subject">{slot.subject}</div>
-                  <div className="slot-faculty">{slot.faculty}</div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </>
-  );
-=======
   <>
     {message && <p className="status-message">{message}</p>}
 
@@ -815,7 +746,7 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
         <p className="section-kicker">Weekly Grid</p>
         <h2>My Timetable</h2>
         <p className="section-copy">
-          Viewing timetable for {teacherFacultyName}
+          Viewing timetable for {teacherFacultyName} · Academic year {academicYear}
         </p>
       </div>
 
@@ -882,7 +813,6 @@ function TeacherTimetable({ user, activeTab = "timetable" }) {
     </div>
   </>
 );
->>>>>>> b3c2ef3 (Update calendar and faculty timetable modules)
 
   const renderAvailability = () => (
     <>

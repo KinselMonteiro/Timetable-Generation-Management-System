@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import API from "../services/api";
 import TimetableTable from "../components/TimetableTable";
 
-export default function Generate({ department, year, semester, onGenerated }) {
+export default function Generate({ academicYear, department, year, semester, onGenerated }) {
   const [msg, setMsg] = useState("");
   const [previewReady, setPreviewReady] = useState(false);
   const [previewCount, setPreviewCount] = useState(0);
@@ -13,7 +13,7 @@ export default function Generate({ department, year, semester, onGenerated }) {
     setPreviewReady(false);
     setPreviewCount(0);
     setPreviewSlots([]);
-  }, [department, semester, year]);
+  }, [academicYear, department, semester, year]);
 
   const getErrorMessage = (err, fallback) => {
     if (err.response?.status === 404) {
@@ -26,6 +26,7 @@ export default function Generate({ department, year, semester, onGenerated }) {
   const generatePreview = async () => {
     try {
       const res = await API.post("/preview-timetable", {
+        academicYear,
         department,
         year: Number(year),
         semester: Number(semester)
@@ -48,6 +49,7 @@ export default function Generate({ department, year, semester, onGenerated }) {
   const saveTimetable = async () => {
     try {
       const res = await API.post("/save-timetable", {
+        academicYear,
         department,
         year: Number(year),
         semester: Number(semester),
@@ -56,7 +58,7 @@ export default function Generate({ department, year, semester, onGenerated }) {
 
       setMsg(
         res.data.inserted !== undefined
-          ? `Saved ${res.data.inserted} timetable slots`
+          ? `Saved ${res.data.inserted} timetable slots for ${academicYear}`
           : "Timetable saved"
       );
       onGenerated?.();
@@ -71,7 +73,7 @@ export default function Generate({ department, year, semester, onGenerated }) {
         <p className="section-kicker">Scheduler</p>
         <h2>Generate Timetable</h2>
         <p className="section-copy">
-          Build a timetable for {department}, Year {year}, Semester {semester} using the current constraints and uploaded load sheet.
+          Build a timetable for academic year {academicYear}, {department}, Year {year}, Semester {semester} using the current constraints and uploaded load sheet.
         </p>
       </div>
 

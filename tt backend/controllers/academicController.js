@@ -1,6 +1,7 @@
 ﻿const db = require("../config/db");
 const XLSX = require("xlsx");
 const { generateEmptySlots, generateFourthYearSlots, generateTimetable, normalizeFacultyName, splitLabHours } = require("../services/slotEngine");
+const { getCurrentAcademicYear, shiftAcademicYear, normalizeAcademicYear } = require("../services/academicYear");
 
 function query(sql, params = []) {
   return new Promise((resolve, reject) => {
@@ -195,17 +196,18 @@ function buildClashScopeWhere(department, semester) {
   };
 }
 
-async function getLockedFacultyBookings(department, year, semester) {
+async function getLockedFacultyBookings(academicYear, department, year, semester) {
   const scope = buildClashScopeWhere(department, semester);
   const lockSql = `
     SELECT faculty, day, time
     FROM timetable_slots
-    WHERE faculty IS NOT NULL
+    WHERE academic_year = ?
+      AND faculty IS NOT NULL
       AND faculty <> ''
       AND ${scope.where}
       AND NOT (department = ? AND year = ? AND semester = ?)
   `;
-  const lockedRows = await query(lockSql, [...scope.params, department, year, semester]);
+  const lockedRows = await query(lockSql, [academicYear, ...scope.params, department, year, semester]);
 
   return lockedRows.flatMap((slot) => {
     return splitFacultyNames(slot.faculty).map((faculty) => {
@@ -214,7 +216,7 @@ async function getLockedFacultyBookings(department, year, semester) {
   });
 }
 
-async function findSwapFacultyConflicts(department, year, semester, placements) {
+async function findSwapFacultyConflicts(academicYear, department, year, semester, placements) {
   const scope = buildClashScopeWhere(department, semester);
   const conflicts = [];
 
@@ -226,13 +228,15 @@ async function findSwapFacultyConflicts(department, year, semester, placements) 
     const sql = `
       SELECT department, year, semester, subject, faculty, day, time
       FROM timetable_slots
-      WHERE ${scope.where}
+      WHERE academic_year = ?
+        AND ${scope.where}
         AND day = ?
         AND time = ?
         AND (${placeholders})
         AND NOT (department = ? AND year = ? AND semester = ?)
     `;
     const params = [
+      academicYear,
       ...scope.params,
       placement.day,
       placement.time,
@@ -417,7 +421,7 @@ const getSubjectsController = (req, res) => {
   });
 };
 
-async function buildTimetableForSelection(department, year, semester) {
+async function buildTimetableForSelection(academicYear, department, year, semester) {
   const subjectSql = `
     SELECT name, hours_per_week AS hoursPerWeek, type, faculty, is_major_minor, closes_day
     FROM subjects
@@ -431,7 +435,7 @@ async function buildTimetableForSelection(department, year, semester) {
     throw error;
   }
 
-  const lockedFacultyBookings = await getLockedFacultyBookings(department, year, semester);
+  const lockedFacultyBookings = await getLockedFacultyBookings(academicYear, department, year, semester);
   const totalWeeklyHours = subjects.reduce((sum, subject) => {
     return sum + (Number(subject.hoursPerWeek) || 0);
   }, 0);
@@ -485,12 +489,13 @@ const previewTimetableController = async (req, res) => {
   try {
     const { year, semester } = req.body;
     const department = normalizeDepartment(req.body.department);
+    const academicYear = normalizeAcademicYear(req.body.academicYear);
 
     if (!year || !semester) {
       return res.status(400).json({ message: "year & semester required" });
     }
 
-    const timetable = await buildTimetableForSelection(department, year, semester);
+    const timetable = await buildTimetableForSelection(academicYear, department, year, semester);
     const savedSlots = timetable.filter((slot) => slot.subject && slot.subject !== "BREAK" && slot.subject !== "LUNCH");
 
     res.json({
@@ -508,6 +513,7 @@ const saveTimetableController = async (req, res) => {
   try {
     const { year, semester } = req.body;
     const department = normalizeDepartment(req.body.department);
+    const academicYear = normalizeAcademicYear(req.body.academicYear);
     const previewSlots = Array.isArray(req.body.slots) ? req.body.slots : null;
 
     if (!year || !semester) {
@@ -516,22 +522,25 @@ const saveTimetableController = async (req, res) => {
 
     const timetable = previewSlots && previewSlots.length
       ? previewSlots
-      : await buildTimetableForSelection(department, year, semester);
+      : await buildTimetableForSelection(academicYear, department, year, semester);
     const rowsToInsert = timetable
       .filter((slot) => slot.subject && slot.subject !== "BREAK" && slot.subject !== "LUNCH")
-      .map((slot) => [department, year, semester, slot.day, slot.time, slot.subject, slot.faculty || null]);
+      .map((slot) => [academicYear, department, year, semester, slot.day, slot.time, slot.subject, slot.faculty || null]);
 
     if (!rowsToInsert.length) {
       return res.status(400).json({ message: "No timetable slots to save" });
     }
 
-    await query("DELETE FROM timetable_slots WHERE department = ? AND year = ? AND semester = ?", [department, year, semester]);
+    await query(
+      "DELETE FROM timetable_slots WHERE academic_year = ? AND department = ? AND year = ? AND semester = ?",
+      [academicYear, department, year, semester]
+    );
     const result = await query(
-      `INSERT INTO timetable_slots (department, year, semester, day, time, subject, faculty) VALUES ?`,
+      `INSERT INTO timetable_slots (academic_year, department, year, semester, day, time, subject, faculty) VALUES ?`,
       [rowsToInsert]
     );
 
-    res.json({ success: true, inserted: result.affectedRows });
+    res.json({ success: true, inserted: result.affectedRows, academicYear });
   } catch (err) {
     console.error(err);
     res.status(err.statusCode || 500).json({ message: err.message || "Save failed" });
@@ -543,32 +552,41 @@ const generateTimetableController = saveTimetableController;
 const getTimetableController = (req, res) => {
   const { year, semester } = req.query;
   const department = normalizeDepartment(req.query.department);
+  const academicYear = normalizeAcademicYear(req.query.academicYear);
   const sql = `
     SELECT day, time, subject, faculty
     FROM timetable_slots
-    WHERE department = ? AND year = ? AND semester = ?
+    WHERE academic_year = ? AND department = ? AND year = ? AND semester = ?
     ORDER BY FIELD(day,'MON','TUE','WED','THU','FRI','SAT'), time
   `;
 
-  db.query(sql, [department, year, semester], (err, rows) => {
+  db.query(sql, [academicYear, department, year, semester], (err, rows) => {
     if (err) {
       console.error(err);
       return res.status(500).json({ message: "Fetch failed" });
     }
 
-    res.json({ success: true, slots: rows });
+    res.json({ success: true, academicYear, slots: rows });
   });
 };
 
-const getSavedTimetablesController = async (_req, res) => {
+const getSavedTimetablesController = async (req, res) => {
   try {
+    const filters = ["subject IS NOT NULL", "subject <> ''"];
+    const params = [];
+
+    if (req.query.academicYear) {
+      filters.push("academic_year = ?");
+      params.push(normalizeAcademicYear(req.query.academicYear));
+    }
+
     const rows = await query(`
-      SELECT department, year, semester, COUNT(*) AS slotCount
+      SELECT academic_year AS academicYear, department, year, semester, COUNT(*) AS slotCount
       FROM timetable_slots
-      WHERE subject IS NOT NULL AND subject <> ''
-      GROUP BY department, year, semester
-      ORDER BY department, year, semester
-    `);
+      WHERE ${filters.join(" AND ")}
+      GROUP BY academic_year, department, year, semester
+      ORDER BY academic_year DESC, department, year, semester
+    `, params);
 
     res.json({ success: true, timetables: rows });
   } catch (err) {
@@ -577,9 +595,28 @@ const getSavedTimetablesController = async (_req, res) => {
   }
 };
 
+const getAcademicYearsController = async (_req, res) => {
+  try {
+    const current = getCurrentAcademicYear();
+    const rows = await query("SELECT DISTINCT academic_year AS academicYear FROM timetable_slots");
+    const years = new Set([
+      shiftAcademicYear(current, -1),
+      current,
+      shiftAcademicYear(current, 1),
+      ...rows.map((row) => row.academicYear)
+    ]);
+
+    res.json({ success: true, current, years: [...years].sort().reverse() });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Could not load academic years" });
+  }
+};
+
 const getTeacherTimetableController = async (req, res) => {
   try {
     const facultyName = String(req.query.facultyName || "").trim();
+    const academicYear = normalizeAcademicYear(req.query.academicYear);
 
     if (!facultyName) {
       return res.status(400).json({ message: "facultyName required" });
@@ -588,11 +625,12 @@ const getTeacherTimetableController = async (req, res) => {
     const rows = await query(
       `SELECT department, year, semester, day, time, subject, faculty
        FROM timetable_slots
-       WHERE faculty LIKE ?
+       WHERE academic_year = ?
+         AND faculty LIKE ?
          AND subject IS NOT NULL
          AND subject <> ''
        ORDER BY FIELD(day,'MON','TUE','WED','THU','FRI','SAT'), time, department, year, semester`,
-      [`%${facultyName}%`]
+      [academicYear, `%${facultyName}%`]
     );
 
     const exactRows = rows.filter((row) => {
@@ -601,7 +639,7 @@ const getTeacherTimetableController = async (req, res) => {
       });
     });
 
-    res.json({ success: true, slots: exactRows });
+    res.json({ success: true, academicYear, slots: exactRows });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Could not load teacher timetable" });
@@ -611,6 +649,7 @@ const getTeacherTimetableController = async (req, res) => {
 const swapSlotsController = async (req, res) => {
   try {
     const department = normalizeDepartment(req.body.department);
+    const academicYear = normalizeAcademicYear(req.body.academicYear);
     const year = Number(req.body.year);
     const semester = Number(req.body.semester);
     const first = req.body.first || {};
@@ -627,11 +666,12 @@ const swapSlotsController = async (req, res) => {
     const rows = await query(
       `SELECT id, day, time, subject, faculty
        FROM timetable_slots
-       WHERE department = ?
+       WHERE academic_year = ?
+         AND department = ?
          AND year = ?
          AND semester = ?
          AND ((day = ? AND time = ?) OR (day = ? AND time = ?))`,
-      [department, year, semester, first.day, first.time, second.day, second.time]
+      [academicYear, department, year, semester, first.day, first.time, second.day, second.time]
     );
 
     if (rows.length !== 2) {
@@ -645,7 +685,7 @@ const swapSlotsController = async (req, res) => {
       return res.status(400).json({ message: "Could not match the selected slots" });
     }
 
-    const conflicts = await findSwapFacultyConflicts(department, year, semester, [
+    const conflicts = await findSwapFacultyConflicts(academicYear, department, year, semester, [
       { ...firstRow, day: second.day, time: second.time },
       { ...secondRow, day: first.day, time: first.time }
     ]);
@@ -690,6 +730,7 @@ const getFacultyAvailabilityController = async (req, res) => {
     const time = String(req.query.time || "").trim();
     const year = req.query.year ? Number(req.query.year) : null;
     const semester = req.query.semester ? Number(req.query.semester) : null;
+    const academicYear = normalizeAcademicYear(req.query.academicYear);
 
     if (!day || !time) {
       return res.status(400).json({ message: "day & time required" });
@@ -717,7 +758,8 @@ const getFacultyAvailabilityController = async (req, res) => {
     const busySql = `
       SELECT faculty
       FROM timetable_slots
-      WHERE day = ?
+      WHERE academic_year = ?
+        AND day = ?
         AND time = ?
         AND faculty IS NOT NULL
         AND faculty <> ''
@@ -726,7 +768,7 @@ const getFacultyAvailabilityController = async (req, res) => {
 
     const [facultyRows, busyRows] = await Promise.all([
       query(facultySqlParts.join(" "), facultyParams),
-      query(busySql, [day, time, ...scope.params])
+      query(busySql, [academicYear, day, time, ...scope.params])
     ]);
 
     const busyFaculty = new Set(
@@ -1204,6 +1246,7 @@ module.exports = {
   generateTimetableController,
   getTimetableController,
   getSavedTimetablesController,
+  getAcademicYearsController,
   getTeacherTimetableController,
   swapSlotsController,
   getFacultyAvailabilityController,
