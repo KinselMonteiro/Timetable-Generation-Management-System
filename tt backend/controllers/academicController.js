@@ -190,17 +190,22 @@ function buildClashScopeWhere(department, semester) {
     };
   }
 
+  // M.E. programs share faculty with one another and undergraduate departments.
+  if (["ME_CIVIL", "ME_DATA_SCIENCE"].includes(department)) {
+    return { where: "1 = 1", params: [] };
+  }
+
   // Both Computer sections share faculty, including timetables saved under the
   // original COMP department name.
   if (["COMP", "COMP1", "COMP2"].includes(department)) {
     return {
-      where: "(department IN ('COMP', 'COMP1', 'COMP2') OR semester IN (1, 2))",
+      where: "(department IN ('COMP', 'COMP1', 'COMP2', 'ME_CIVIL', 'ME_DATA_SCIENCE') OR semester IN (1, 2))",
       params: []
     };
   }
 
   return {
-    where: "(department = ? OR semester IN (1, 2))",
+    where: "(department = ? OR department IN ('ME_CIVIL', 'ME_DATA_SCIENCE') OR semester IN (1, 2))",
     params: [department]
   };
 }

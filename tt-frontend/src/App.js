@@ -83,6 +83,7 @@ function App() {
   }
 
   const role = user.role;
+  const isMasters = ["ME_CIVIL", "ME_DATA_SCIENCE"].includes(department);
 
   const renderPage = () => {
     if (page === "calendar") {
@@ -192,10 +193,17 @@ function App() {
                 </label>
 
                 <label className="selection-field">
-                  <span>Department</span>
+                  <span>Program / Department</span>
                   <select
                     value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
+                    onChange={(e) => {
+                      const selectedDepartment = e.target.value;
+                      setDepartment(selectedDepartment);
+                      if (["ME_CIVIL", "ME_DATA_SCIENCE"].includes(selectedDepartment)) {
+                        setYear("1");
+                        setSemester("1");
+                      }
+                    }}
                   >
                     <option value="ECS">ECS</option>
                     <option value="COMP1">COMP 1</option>
@@ -203,6 +211,8 @@ function App() {
                     <option value="COMP">COMP (existing timetables)</option>
                     <option value="MECH">MECH</option>
                     <option value="CIVIL">CIVIL</option>
+                    <option value="ME_CIVIL">M.E. Civil</option>
+                    <option value="ME_DATA_SCIENCE">M.E. Data Science</option>
                   </select>
                 </label>
 
@@ -210,12 +220,14 @@ function App() {
                   <span>Year</span>
                   <select
                     value={year}
-                    onChange={(e) => setYear(e.target.value)}
+                    onChange={(e) => {
+                      setYear(e.target.value);
+                      if (isMasters) setSemester(String(2 * Number(e.target.value) - 1));
+                    }}
                   >
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
+                    {(isMasters ? [1, 2] : [1, 2, 3, 4]).map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
                   </select>
                 </label>
 
@@ -225,14 +237,9 @@ function App() {
                     value={semester}
                     onChange={(e) => setSemester(e.target.value)}
                   >
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                    <option value="5">5</option>
-                    <option value="6">6</option>
-                    <option value="7">7</option>
-                    <option value="8">8</option>
+                    {(isMasters ? [2 * Number(year) - 1, 2 * Number(year)] : [1, 2, 3, 4, 5, 6, 7, 8]).map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
                   </select>
                 </label>
               </div>

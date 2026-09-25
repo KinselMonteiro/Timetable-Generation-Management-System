@@ -2,6 +2,13 @@ import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import "../styles/home.css";
 
+const DEPARTMENT_LABELS = {
+  COMP1: "COMP 1",
+  COMP2: "COMP 2",
+  ME_CIVIL: "M.E. Civil",
+  ME_DATA_SCIENCE: "M.E. Data Science"
+};
+
 function Home({ user, setPage, academicYear }) {
   const [saved, setSaved] = useState([]);
   const [credentials, setCredentials] = useState([]);
@@ -72,7 +79,7 @@ function Home({ user, setPage, academicYear }) {
         <div className="summary-list">
           {saved.length ? saved.map((item) => (
             <div className="summary-row" key={`${item.academicYear}-${item.department}-${item.year}-${item.semester}`}>
-              <strong>{item.department}</strong>
+              <strong>{DEPARTMENT_LABELS[item.department] || item.department}</strong>
               <span>Year {item.year}, Semester {item.semester}</span>
               <span>{item.slotCount} saved slots</span>
             </div>
