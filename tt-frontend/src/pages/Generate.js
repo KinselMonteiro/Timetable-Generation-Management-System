@@ -93,7 +93,7 @@ export default function Generate({ academicYear, department, year, semester, onG
 
       {previewReady && <p className="section-copy">Preview slot count: {previewCount}</p>}
       {msg && <p className="status-message">{msg}</p>}
-      {previewReady && <TimetableTable slots={previewSlots} year={year} semester={semester} />}
+      {previewReady && <TimetableTable slots={previewSlots} department={department} year={year} semester={semester} />}
     </div>
   );
 }

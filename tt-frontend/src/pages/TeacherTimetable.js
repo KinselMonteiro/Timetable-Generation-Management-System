@@ -595,7 +595,7 @@ function TeacherTimetable({ user, academicYear, activeTab = "timetable" }) {
     });
 
     DAY_ORDER.forEach((day) => {
-      const rowData = [day];
+      const rowData = [day === "SAT" ? "SAT (alternate)" : day];
 
       TIMETABLE_TIMES.forEach((time) => {
         const entries = timetableMatrix[day]?.[time] || [];
@@ -773,7 +773,7 @@ function TeacherTimetable({ user, academicYear, activeTab = "timetable" }) {
         <tbody>
           {DAY_ORDER.map((day) => (
             <tr key={day}>
-              <td className="faculty-grid-day">{day}</td>
+              <td className="faculty-grid-day">{day === "SAT" ? "SAT (alternate)" : day}</td>
 
               {TIMETABLE_TIMES.map((time) => {
                 const entries = timetableMatrix[day]?.[time] || [];

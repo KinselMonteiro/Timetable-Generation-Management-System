@@ -1,7 +1,8 @@
 ﻿const db = require("../config/db");
 const XLSX = require("xlsx");
-const { generateEmptySlots, generateFourthYearSlots, generateTimetable, normalizeFacultyName, splitLabHours } = require("../services/slotEngine");
+const { generateEmptySlots, generateFirstYearSlots, generateTimetable, normalizeFacultyName, splitLabHours } = require("../services/slotEngine");
 const { getCurrentAcademicYear, shiftAcademicYear, normalizeAcademicYear } = require("../services/academicYear");
+const { prepareSubjectsForTimetable } = require("../services/parallelSubjects");
 
 function query(sql, params = []) {
   return new Promise((resolve, reject) => {
@@ -83,7 +84,9 @@ function normalizeSubjectTypeForStorage(type, subject) {
   const typeValue = String(type || "").trim().toUpperCase();
   const subjectValue = String(subject || "").trim().toUpperCase();
 
-  if (typeValue.includes("PROJECT") || subjectValue.includes("PROJECT")) return "PROJECT";
+  if (subjectValue.includes("PROJECT MANAGEMENT")) {
+    return subjectValue.includes("LAB") ? "LAB" : "THEORY";
+  }
   if (
     typeValue.includes("LAB")
     || typeValue.includes("PRACTICAL")
@@ -93,6 +96,9 @@ function normalizeSubjectTypeForStorage(type, subject) {
     return "LAB";
   }
   if (typeValue.includes("TUTORIAL") || subjectValue.includes("TUTORIAL")) return "TUTORIAL";
+  if (typeValue.includes("PROJECT")) return "PROJECT";
+  if (typeValue.includes("THEORY")) return "THEORY";
+  if (subjectValue.includes("PROJECT")) return "PROJECT";
 
   return "THEORY";
 }
@@ -441,33 +447,32 @@ async function buildTimetableForSelection(academicYear, department, year, semest
     FROM subjects
     WHERE department = ? AND year = ? AND semester = ?
   `;
-  const subjects = await query(subjectSql, [department, year, semester]);
+  const uploadedSubjects = await query(subjectSql, [department, year, semester]);
 
-  if (!subjects.length) {
+  if (!uploadedSubjects.length) {
     const error = new Error("No subjects found");
     error.statusCode = 400;
     throw error;
   }
 
+  const subjects = prepareSubjectsForTimetable(uploadedSubjects, department, semester);
   const lockedFacultyBookings = await getLockedFacultyBookings(academicYear, department, year, semester);
   const totalWeeklyHours = subjects.reduce((sum, subject) => {
     return sum + (Number(subject.hoursPerWeek) || 0);
   }, 0);
   const labBlockCount = estimateLabBlockCount(subjects);
-  const usesSingleLunchBreak = Number(semester) <= 2 || Number(year) === 4;
-  const firstYearLabLoadNeedsSaturday =
-    usesSingleLunchBreak && Number(semester) <= 2 && totalWeeklyHours + labBlockCount > 35;
-  const includeSaturday = totalWeeklyHours >= 35 || labBlockCount > 5 || firstYearLabLoadNeedsSaturday;
-  const availableDays = includeSaturday ? 6 : 5;
-  const maxLabsPerDay = Math.max(1, Math.ceil(labBlockCount / availableDays));
+  const usesSingleLunchBreak = Number(year) === 1 && !department.startsWith("ME_");
+  const includeSaturday = totalWeeklyHours > 35 || subjects.some((subject) => subject.saturdayOnly);
+  // Labs never run on Saturday, so distribute them across the five weekdays.
+  const maxLabsPerDay = Math.max(1, Math.ceil(labBlockCount / 5));
   const slotGrid = usesSingleLunchBreak
-    ? generateFourthYearSlots({ includeSaturday })
+    ? generateFirstYearSlots({ includeSaturday })
     : generateEmptySlots({ includeSaturday });
   const classCapacity = slotGrid.filter((slot) => slot.type === "CLASS").length;
 
   if (totalWeeklyHours > classCapacity) {
     const error = new Error(
-      `Weekly load is ${totalWeeklyHours} hours but this timetable grid has only ${classCapacity} teaching slots. Reduce elective/extra rows or split this semester into a special pattern.`
+      `The uploaded load totals ${totalWeeklyHours} hours, but one class has only ${classCapacity} teaching slots${includeSaturday ? " including Saturday" : " Monday to Friday"}. Check whether some lab hours are for parallel batches or whether rows were duplicated; no subject hours were removed.`
     );
     error.statusCode = 400;
     throw error;
@@ -481,9 +486,9 @@ async function buildTimetableForSelection(academicYear, department, year, semest
       department,
       year: Number(year),
       semester: Number(semester),
-      labsInLaterHalfOnly: Number(semester) <= 2,
+      labsInLaterHalfOnly: usesSingleLunchBreak,
       singleBreakSchedule: usesSingleLunchBreak,
-      singleLabSessionPerWeek: Number(semester) >= 3,
+      singleLabSessionPerWeek: !usesSingleLunchBreak,
       allowClassesAfterLab: totalWeeklyHours > 35,
       includeSaturday,
       maxLabsPerDay

@@ -14,7 +14,7 @@ const REGULAR_TIMES = [
   "15:00-16:00",
   "16:00-17:00"
 ];
-const FOURTH_YEAR_TIMES = [
+const FIRST_YEAR_TIMES = [
   "09:00-10:00",
   "10:00-11:00",
   "11:00-12:00",
@@ -138,8 +138,8 @@ exports.exportTimetableController = async (req, res) => {
       return res.status(404).json({ message: "No timetable found" });
     }
 
-    const usesSingleLunchBreak = semester <= 2 || year === 4;
-    const times = usesSingleLunchBreak ? FOURTH_YEAR_TIMES : REGULAR_TIMES;
+    const usesSingleLunchBreak = year === 1 && !department.startsWith("ME_");
+    const times = usesSingleLunchBreak ? FIRST_YEAR_TIMES : REGULAR_TIMES;
     const lastColumn = times.length;
     const detailSubjectEnd = Math.min(4, lastColumn);
     const detailFacultyStart = Math.min(detailSubjectEnd + 1, lastColumn);
@@ -202,7 +202,7 @@ exports.exportTimetableController = async (req, res) => {
     DAYS.forEach((day, dayIndex) => {
       const rowNumber = 6 + dayIndex;
       const values = [
-        day,
+        day === "SAT" ? "SAT (alternate)" : day,
         ...times.map((time) => {
           const slot = rows.find((currentRow) => currentRow.day === day && currentRow.time === time);
           if (usesSingleLunchBreak && time === "12:00-13:00") return "LUNCH BREAK";

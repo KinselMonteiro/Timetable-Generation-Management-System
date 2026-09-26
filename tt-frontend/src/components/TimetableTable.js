@@ -14,7 +14,7 @@ const REGULAR_TIMES = [
   "16:00-17:00"
 ];
 
-const FOURTH_YEAR_TIMES = [
+const FIRST_YEAR_TIMES = [
   "09:00-10:00",
   "10:00-11:00",
   "11:00-12:00",
@@ -27,6 +27,7 @@ const FOURTH_YEAR_TIMES = [
 
 function TimetableTable({
   slots,
+  department,
   year,
   semester,
   swapMode = false,
@@ -40,11 +41,10 @@ function TimetableTable({
     ? slots.timetable
     : [];
 
-  const usesSingleLunchBreak =
-    Number(semester) <= 2 || Number(year) === 4;
+  const usesSingleLunchBreak = Number(year) === 1 && !String(department || "").startsWith("ME_");
 
   const times = usesSingleLunchBreak
-    ? FOURTH_YEAR_TIMES
+    ? FIRST_YEAR_TIMES
     : REGULAR_TIMES;
 
   const getCell = (day, time) => {
@@ -75,7 +75,7 @@ function TimetableTable({
         <tbody>
           {DAYS.map((day) => (
             <tr key={day}>
-              <td className="day-label">{day}</td>
+              <td className="day-label">{day === "SAT" ? "SAT (alternate)" : day}</td>
 
               {times.map((time) => {
                 const cell = getCell(day, time);

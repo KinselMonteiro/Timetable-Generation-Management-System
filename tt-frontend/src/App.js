@@ -40,8 +40,8 @@ function App() {
   }, [user, refreshToken]);
 
   useEffect(() => {
-    // Only admins can browse other years; teachers and students always see the current one.
-    if (user && user.role !== "admin") {
+    // Students always see the current academic year.
+    if (user?.role === "student") {
       setAcademicYear(currentAcademicYear);
     }
   }, [user, currentAcademicYear]);
@@ -173,6 +173,21 @@ function App() {
                 })}
               </p>
             </div>
+
+            {role === "teacher" && (
+              <div className="selection-panel">
+                <label className="selection-field">
+                  <span>Academic Year</span>
+                  <select value={academicYear} onChange={(e) => setAcademicYear(e.target.value)}>
+                    {academicYears.map((option) => (
+                      <option key={option} value={option}>
+                        {option}{option === currentAcademicYear ? " (current)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
 
             {role !== "teacher" && (
               <div className="selection-panel">

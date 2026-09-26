@@ -123,6 +123,7 @@ export default function ViewTimetable({
       {message && <p className="status-message">{message}</p>}
       <TimetableTable
         slots={slots}
+        department={department}
         year={year}
         semester={semester}
         swapMode={swapMode}

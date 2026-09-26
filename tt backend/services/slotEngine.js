@@ -10,7 +10,7 @@ const PERIODS = [
   { time: "15:00-16:00", type: "CLASS", classIndex: 5 },
   { time: "16:00-17:00", type: "CLASS", classIndex: 6 }
 ];
-const FOURTH_YEAR_PROJECT_PERIODS = [
+const FIRST_YEAR_PERIODS = [
   { time: "09:00-10:00", type: "CLASS", classIndex: 0 },
   { time: "10:00-11:00", type: "CLASS", classIndex: 1 },
   { time: "11:00-12:00", type: "CLASS", classIndex: 2 },
@@ -79,17 +79,24 @@ function generateSlotsFromPeriods(periods, options = {}) {
   return slots;
 }
 
-function generateFourthYearSlots(options = {}) {
-  return generateSlotsFromPeriods(FOURTH_YEAR_PROJECT_PERIODS, options);
+function generateFirstYearSlots(options = {}) {
+  return generateSlotsFromPeriods(FIRST_YEAR_PERIODS, options);
 }
 
 function normalizeType(type, name) {
   const typeValue = String(type || "").trim().toUpperCase();
   const nameValue = String(name || "").trim().toUpperCase();
 
-  if (typeValue.includes("PROJECT") || nameValue.includes("PROJECT")) return "PROJECT";
+  // Older uploads may have stored Project Management as PROJECT because of its
+  // name, even though it is an ordinary theory course (or a lab).
+  if (nameValue.includes("PROJECT MANAGEMENT")) {
+    return nameValue.includes("LAB") ? "LAB" : "THEORY";
+  }
   if (typeValue.includes("WORKSHOP") || nameValue.includes("WORKSHOP")) return "LAB";
   if (typeValue.includes("LAB") || typeValue.includes("PRACTICAL") || nameValue.includes("LAB")) return "LAB";
+  if (typeValue.includes("PROJECT")) return "PROJECT";
+  if (typeValue.includes("THEORY")) return "THEORY";
+  if (nameValue.includes("PROJECT")) return "PROJECT";
   if (typeValue.includes("TUTORIAL") || nameValue.includes("TUTORIAL")) return "TUTORIAL";
   if (typeValue.includes("MAJOR") || typeValue.includes("MINOR") || nameValue.includes("MAJOR") || nameValue.includes("MINOR")) return "MAJOR_MINOR";
 
@@ -115,7 +122,8 @@ function normalizeSubjects(subjects) {
         isLab: type === "LAB",
         isProject: type === "PROJECT",
         isMajorMinor: Boolean(subject.is_major_minor) || type === "MAJOR_MINOR" || usesClosingPlacement,
-        closesDay: Boolean(subject.closes_day) || usesClosingPlacement
+        closesDay: Boolean(subject.closes_day) || usesClosingPlacement,
+        saturdayOnly: Boolean(subject.saturdayOnly)
       };
     })
     .filter((subject) => subject.hoursPerWeek > 0);
@@ -241,7 +249,8 @@ function canPlaceLab(task, startSlot, state, classSlotsByDay) {
   const validStarts = getLabStartOptions(duration, state);
 
   if (!validStarts || !validStarts.has(startSlot.time)) return null;
-  if (startSlot.day === "SAT" && !state.options.includeSaturday) return null;
+  // Saturday is reserved for lighter theory sessions, even when it is active.
+  if (startSlot.day === "SAT") return null;
   if (task.closesDay && !["14:00-15:00", "15:00-16:00"].includes(startSlot.time)) return null;
   if (
     dayState.closingSubjectKey &&
@@ -297,6 +306,8 @@ function isClosingMajorMinorAllowedAfterLab(dayState, task, slot) {
 function canPlaceSingle(task, slot, state) {
   const dayState = state.dayState[slot.day];
   if (slot.day === "SAT" && !state.options.includeSaturday) return false;
+  if (slot.day === "SAT" && (task.isMajorMinor || task.closesDay)) return false;
+  if (task.saturdayOnly && slot.day !== "SAT") return false;
   if (state.assignments.has(`${slot.day}__${slot.time}`)) return false;
 
   if (!state.options.allowClassesAfterLab && dayState.hasLab && dayState.labEndIndex !== null && slot.classIndex > dayState.labEndIndex) {
@@ -561,6 +572,8 @@ function getSingleScore(task, slot, state, classSlotsByDay) {
   score -= dayState.teachingCount * 0.5;
   score += task.closesDay ? slot.classIndex * 10 : 0;
   score -= slot.classIndex === 0 ? firstSlotCount * 14 : 0;
+  // Prefer weekdays and the Saturday morning when a Saturday is needed.
+  if (slot.day === "SAT") score -= 40 + slot.classIndex * 15;
 
   if (isFourthYear && !task.isMajorMinor && !task.closesDay) {
     score += (6 - slot.classIndex) * 7;
@@ -740,7 +753,7 @@ function fillProjectModeTheory(tasks, state, classSlotsByDay) {
 }
 
 function canPlaceProjectBlock(task, slot, state) {
-  if (slot.day === "SAT" && !state.options.includeSaturday) return false;
+  if (slot.day === "SAT") return false;
   if (state.assignments.has(`${slot.day}__${slot.time}`)) return false;
   return canUseFaculty(task, [slot], state);
 }
@@ -757,6 +770,7 @@ function getProjectBlockScore(slot, state) {
   score += touchesExistingClass ? 8 : 0;
   score -= countGaps(nextIndices) * 14;
   score -= dayState.teachingCount * 1.5;
+  if (slot.day === "SAT") score -= 40 + slot.classIndex * 15;
 
   return score;
 }
@@ -797,10 +811,8 @@ function fillProjectModeProjects(tasks, state, classSlotsByDay) {
   return true;
 }
 
-function generateProjectModeTimetable(tasks, options) {
-  const projectSlots = generateSlotsFromPeriods(FOURTH_YEAR_PROJECT_PERIODS, {
-    includeSaturday: options.includeSaturday
-  });
+function generateProjectModeTimetable(tasks, slots, options) {
+  const projectSlots = slots;
   const classSlotsByDay = buildClassSlotsByDay(projectSlots);
   const state = createState(options);
 
@@ -879,7 +891,8 @@ function buildTasks(subjects) {
           isLab: false,
           isProject: true,
           isMajorMinor: false,
-          closesDay: false
+          closesDay: false,
+          saturdayOnly: subject.saturdayOnly
         });
       }
       continue;
@@ -917,7 +930,8 @@ function buildTasks(subjects) {
         isLab: false,
         isProject: false,
         isMajorMinor: subject.isMajorMinor,
-        closesDay: subject.closesDay
+        closesDay: subject.closesDay,
+        saturdayOnly: subject.saturdayOnly
       });
     }
   }
@@ -939,7 +953,7 @@ function generateTimetable(subjects, slots, options = {}) {
   const state = createState(options);
 
   if (tasks.projects.length && !tasks.labs.length) {
-    return generateProjectModeTimetable(tasks, options);
+    return generateProjectModeTimetable(tasks, slots, options);
   }
 
   const labsPlaced = placeLabs(tasks.labs, state, classSlotsByDay, 0, () => {
@@ -956,7 +970,7 @@ function generateTimetable(subjects, slots, options = {}) {
 
 module.exports = {
   generateEmptySlots,
-  generateFourthYearSlots,
+  generateFirstYearSlots,
   generateTimetable,
   normalizeFacultyName,
   splitLabHours
