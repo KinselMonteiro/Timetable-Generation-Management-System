@@ -317,7 +317,7 @@ function TeacherTimetable({ user, academicYear, activeTab = "timetable" }) {
         requesterName: user.name,
         requesterFaculty: user.facultyName
       });
-      setRequestMessage("Request sent to all teacher dashboards.");
+      setRequestMessage("Request sent. Other teachers will see it under Notifications.");
       setRequestForm((current) => ({ ...current, subject: "", reason: "" }));
       loadRequests();
     } catch (err) {
@@ -514,17 +514,7 @@ function TeacherTimetable({ user, academicYear, activeTab = "timetable" }) {
 
   const teacherFacultyName = user?.facultyName || user?.name || "Faculty";
 
-  const teacherOnlySlots = slots.filter((slot) => {
-    const loggedFaculty = String(teacherFacultyName).toLowerCase().trim();
-    const slotFaculty = String(slot.faculty || "").toLowerCase();
-
-    if (!loggedFaculty || loggedFaculty === "faculty") return true;
-    if (!slotFaculty) return true;
-
-    return slotFaculty.includes(loggedFaculty);
-  });
-
-  const sortedSlots = [...teacherOnlySlots].sort((left, right) => {
+  const sortedSlots = [...slots].sort((left, right) => {
     return DAY_ORDER.indexOf(normalizeDay(left.day)) - DAY_ORDER.indexOf(normalizeDay(right.day))
       || mapTimeToGrid(left.time).localeCompare(mapTimeToGrid(right.time))
       || String(left.department).localeCompare(String(right.department));
@@ -860,8 +850,7 @@ function TeacherTimetable({ user, academicYear, activeTab = "timetable" }) {
         <p className="section-kicker">Notifications</p>
         <h2>Requests Received From Other Faculty</h2>
         <p className="section-copy">
-          Sem 3-8 requests are shown only inside your department. Sem 1-2 requests are universal because first-year
-          classes can be handled by the shared Science & Humanities pool.
+          Open cover requests from other teachers appear here. Check the class details before accepting.
         </p>
       </div>
       <div className="notification-toolbar">

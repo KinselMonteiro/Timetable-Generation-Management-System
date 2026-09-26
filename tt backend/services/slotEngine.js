@@ -226,8 +226,24 @@ function normalizeFacultyName(faculty) {
   return String(faculty || "")
     .trim()
     .toLowerCase()
-    .replace(/^(dr|mr|mrs|ms|prof)\.?\s+/i, "")
+    .replace(/^(dr|mr|mrs|ms|prof|asst\.? prof)\.?\s+/i, "")
+    .replace(/[’']/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ");
+}
+
+function facultyNamesMatch(left, right) {
+  const first = normalizeFacultyName(left);
+  const second = normalizeFacultyName(right);
+  if (!first || !second) return false;
+  if (first === second) return true;
+
+  // Directory names sometimes include extra middle names or initials.
+  const leftParts = first.split(" ");
+  const rightParts = second.split(" ");
+  return leftParts.length >= 2 && rightParts.length >= 2
+    && leftParts[0] === rightParts[0]
+    && leftParts[leftParts.length - 1] === rightParts[rightParts.length - 1];
 }
 
 function canUseFaculty(task, affectedSlots, state) {
@@ -973,5 +989,6 @@ module.exports = {
   generateFirstYearSlots,
   generateTimetable,
   normalizeFacultyName,
+  facultyNamesMatch,
   splitLabHours
 };

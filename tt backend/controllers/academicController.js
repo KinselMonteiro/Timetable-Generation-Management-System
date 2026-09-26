@@ -1,6 +1,6 @@
 ﻿const db = require("../config/db");
 const XLSX = require("xlsx");
-const { generateEmptySlots, generateFirstYearSlots, generateTimetable, normalizeFacultyName, splitLabHours } = require("../services/slotEngine");
+const { generateEmptySlots, generateFirstYearSlots, generateTimetable, normalizeFacultyName, facultyNamesMatch, splitLabHours } = require("../services/slotEngine");
 const { getCurrentAcademicYear, shiftAcademicYear, normalizeAcademicYear } = require("../services/academicYear");
 const { prepareSubjectsForTimetable } = require("../services/parallelSubjects");
 
@@ -645,16 +645,16 @@ const getTeacherTimetableController = async (req, res) => {
       `SELECT department, year, semester, day, time, subject, faculty
        FROM timetable_slots
        WHERE academic_year = ?
-         AND faculty LIKE ?
+         AND faculty IS NOT NULL
          AND subject IS NOT NULL
          AND subject <> ''
        ORDER BY FIELD(day,'MON','TUE','WED','THU','FRI','SAT'), time, department, year, semester`,
-      [academicYear, `%${facultyName}%`]
+      [academicYear]
     );
 
     const exactRows = rows.filter((row) => {
       return splitFacultyNames(row.faculty).some((faculty) => {
-        return faculty.toLowerCase() === facultyName.toLowerCase();
+        return facultyNamesMatch(faculty, facultyName);
       });
     });
 
@@ -879,35 +879,28 @@ const getFacultyRequestsController = async (req, res) => {
     await ensureFacultyRequestsTable();
 
     const facultyName = String(req.query.facultyName || "").trim();
-    const facultyDepartment = req.query.department
-      ? normalizeDepartment(req.query.department)
-      : "";
     const rows = await query(`
       SELECT id, requester_name AS requesterName, requester_faculty AS requesterFaculty,
-             department, year, semester, request_date AS requestDate, day, time, subject, reason, status,
+             department, year, semester, DATE_FORMAT(request_date, '%Y-%m-%d') AS requestDate,
+             day, time, subject, reason, status,
              responder_name AS responderName, responder_faculty AS responderFaculty,
              created_at AS createdAt, updated_at AS updatedAt
       FROM faculty_requests
-      WHERE request_date >= CURDATE()
-        AND request_date IS NOT NULL
+      WHERE request_date IS NOT NULL
       ORDER BY FIELD(status, 'OPEN', 'ACCEPTED', 'DECLINED'), created_at DESC
     `);
 
     res.json({
       success: true,
       openRequests: rows.filter((request) => {
-        const isOwnRequest = facultyName
-          && request.requesterFaculty.toLowerCase() === facultyName.toLowerCase();
-        const isFirstYearRequest = Number(request.semester) <= 2;
-        const isSameDepartment = facultyDepartment
-          && normalizeDepartment(request.department) === facultyDepartment;
-
-        return request.status !== "DECLINED"
-          && !isOwnRequest
-          && (isFirstYearRequest || isSameDepartment);
+        const isOwnRequest = facultyName && facultyNamesMatch(request.requesterFaculty, facultyName);
+        const requestDay = String(request.requestDate).slice(0, 10);
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        return request.status === "OPEN" && !isOwnRequest && requestDay >= today;
       }),
       myRequests: rows.filter((request) => {
-        return facultyName && request.requesterFaculty.toLowerCase() === facultyName.toLowerCase();
+        return facultyName && facultyNamesMatch(request.requesterFaculty, facultyName);
       }),
       requests: rows
     });
